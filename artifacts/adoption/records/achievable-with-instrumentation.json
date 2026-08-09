@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "moneyball-prediction-2-achievable",
+  "seriesId": "nba-game-88213-home-win",
+  "subject": {
+    "event": "NBA regular season game 88213, home team win",
+    "outcomeDefinition": "Home team recorded as the winner in dbo.Games for GameId 88213.",
+    "resolutionSource": "Moneyball dbo.Games final score",
+    "resolveBy": "2026-06-14T06:00:00Z"
+  },
+  "generatedAt": "2026-06-13T18:00:00Z",
+  "expiresAt": "2026-06-13T23:30:00Z",
+  "methodology": { "name": "nba_gbm", "version": "5", "changedFromPrevious": false },
+  "output": {
+    "type": "prediction",
+    "probability": 0.7642,
+    "probabilityStated": "0.76",
+    "interval": { "lower": 0.71, "upper": 0.81, "level": 0.9, "method": "walk-forward CV residual bootstrap, 2000 resamples" }
+  },
+  "baseline": {
+    "probability": 0.5843,
+    "source": "Moneyball home-court base rate, NBA 2023-2026",
+    "basis": "Proportion of NBA regular-season games won by the home team across 3,942 games since 2023-10-01."
+  },
+  "data": {
+    "sampleSize": { "n": 3942, "unit": "completed NBA regular-season games", "basis": "Walk-forward training window since 2023-10-01, the period since the current rest-day scheduling rules." },
+    "completeness": { "knownGaps": ["Two of 3942 games lack tracking-derived pace features and fall back to season means."], "criticalMissing": [] },
+    "freshness": { "dataAsOf": "2026-06-13T17:55:00Z", "freshnessWindow": "PT6H" },
+    "outliers": { "assessed": true, "detected": true, "handling": "Four games with margin above the 99.5th percentile were retained; blowouts under comparable rest are evidence about the tail, not contamination." }
+  },
+  "regime": { "assessed": true, "changeDetected": false, "description": "No rule, scheduling, or roster-eligibility change since the training window opened." },
+  "ensemble": {
+    "members": [
+      { "name": "nba_gbm", "version": "5", "probability": 0.7642, "weight": 0.6 },
+      { "name": "nba_elo", "version": "2", "probability": 0.7301, "weight": 0.4 }
+    ],
+    "aggregation": { "method": "weighted-mean", "note": "Weights fixed at the last refit, before either model saw this game." },
+    "disagreement": { "spread": 0.0341, "declared": false }
+  },
+  "market": {
+    "impliedProbability": 0.7143,
+    "source": "The Odds API moneyline consensus",
+    "asOf": "2026-06-13T17:55:00Z",
+    "raw": [
+      { "outcome": "home win", "price": 1.3, "format": "decimal" },
+      { "outcome": "away win", "price": 3.25, "format": "decimal" }
+    ],
+    "vig": { "removed": true, "method": "proportional", "overround": 0.0769 }
+  },
+  "edge": { "value": 0.0499, "basis": "probability-minus-market-implied" },
+  "confidence": { "tier": "High", "vocabularyRef": "policy" },
+  "calibration": {
+    "measured": true,
+    "method": "validation ECE, 10 bins",
+    "dataset": "Held-out 2025-26 NBA regular season, n = 1230, out of sample for this refit.",
+    "asOf": "2026-06-01",
+    "score": { "metric": "ece", "value": 0.041 }
+  },
+  "provenance": {
+    "generatedBy": "moneyball prediction service",
+    "dataSources": [
+      { "name": "The Odds API moneyline", "retrievedAt": "2026-06-13T17:55:00Z", "asOf": "2026-06-13T17:55:00Z" },
+      { "name": "nba_api box scores", "retrievedAt": "2026-06-13T17:40:00Z", "asOf": "2026-06-13T06:00:00Z" }
+    ],
+    "historical": { "isHistorical": false }
+  }
+}

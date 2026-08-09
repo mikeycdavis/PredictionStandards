@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "moneyball-prediction-1",
+  "subject": {
+    "event": "NBA regular season game, home team win",
+    "outcomeDefinition": "Home team recorded as the winner in dbo.Games for this GameId.",
+    "resolutionSource": "Moneyball dbo.Games final score"
+  },
+  "generatedAt": "2026-06-13T18:00:00Z",
+  "methodology": {
+    "name": "nba_gbm",
+    "version": "5"
+  },
+  "output": {
+    "type": "prediction",
+    "probability": 0.7642,
+    "probabilityStated": "0.7642"
+  },
+  "market": {
+    "impliedProbability": 0.7143,
+    "source": "The Odds API moneyline, devigged multiplicatively",
+    "asOf": "2026-06-13T17:55:00Z"
+  },
+  "edge": {
+    "value": 0.0499,
+    "basis": "probability-minus-market-implied"
+  },
+  "expectedValue": {
+    "value": 6.99,
+    "stake": 100,
+    "payout": 140,
+    "currency": "USD"
+  },
+  "confidence": {
+    "tier": "High",
+    "vocabularyRef": "policy"
+  },
+  "calibration": {
+    "measured": true,
+    "method": "validation ECE",
+    "dataset": "Models.ValidationEce for this ModelId",
+    "asOf": "2026-06-01",
+    "score": { "metric": "ece", "value": 0.041 }
+  },
+  "provenance": {
+    "generatedBy": "moneyball prediction service",
+    "dataSources": [
+      { "name": "The Odds API", "retrievedAt": "2026-06-13T17:55:00Z", "asOf": "2026-06-13T17:55:00Z" }
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+# Project policy for a prediction-producing project.
+#
+# Copy this file to your repository root and edit it. Every threshold below is a domain judgement,
+# not a fact about prediction quality — the defaults suit a stable, high-frequency process and are
+# wrong for rare events.
+#
+# Four mechanisms, deliberately not interchangeable:
+#   rules          this rule binds at this level here
+#   applicability  this rule has no subject in this project
+#   exceptions     this rule applies and we knowingly do not satisfy it
+#   attestations   a human evaluated this rule, and here is what they examined
+#
+# None of them works on a non-exemptible rule. Nine rules are non-exemptible; an attempt to waive,
+# downgrade, or reclassify one is reported as an integrity violation and blocks the work.
+
+standardVersion: "1.0.0"
+project: "Moneyball"
+
+parameters:
+  # Smallest sample a prediction may rest on without justification.
+  minSampleSize: 30
+  # Ensemble spread above which disagreement must be declared and addressed.
+  disagreementThreshold: 0.08   # Moneyball gate 4, transcribed as-is
+  # Below this absolute difference, an edge or baseline departure needs explaining.
+  materialityThreshold: 0.01
+  # Numeric tolerance when recomputing edge, expected value, and de-vigged probabilities.
+  tolerance: 0.0001
+  # Applied when a record declares no freshness window of its own.
+  defaultFreshnessWindow: "P7D"
+  # Define your tiers in terms someone could disagree with. "Fairly sure" is not a definition.
+  confidenceVocabulary:
+    - tier: "Low"
+      definition: "Moneyball ConfidenceRating Low. Definition transcribed from confidence_score < 50."
+    - tier: "Medium"
+      definition: "Moneyball ConfidenceRating Medium. Definition transcribed from confidence_score 50-74."
+    - tier: "High"
+      definition: "Moneyball ConfidenceRating High. confidence_score >= 75, which is betting gate 2."
+
+# Rules whose subject genuinely does not exist in this project. Every entry needs a reason, and
+# should carry revisitWhen so the claim is re-examined rather than inherited forever. Uncomment and
+# fill in when you have one; an empty block is not the same as a considered "nothing here".
+#
+# applicability:
+#   market.reference-present-or-declared-absent:
+#     status: not-applicable
+#     reason: "Nothing we predict has a market reference."
+#     reviewedAt: "2026-01-01"
+#     revisitWhen: "We begin predicting anything that is priced."
+
+# Rules that apply and are knowingly unmet. Each needs an approver, a date, and preferably an expiry.
+# An exception naming one of the nine non-exemptible rules is rejected, not recorded.
+exceptions: []
+
+# Recorded human judgement for the rules no structural check can establish — the calibration and
+# outcome-bias rules. Until one is attested, those rules report as not-evaluated, never as passing.
+#
+# attestations:
+#   calibration.no-outcome-vindication:
+#     status: approved
+#     reviewedBy: "your-name"
+#     reviewedAt: "2026-01-01"
+#     evidence: "What you examined, specifically enough that someone could disagree with it." 
