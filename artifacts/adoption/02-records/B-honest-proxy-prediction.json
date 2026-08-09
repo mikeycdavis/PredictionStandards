@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "burnout-proxy-2026-06-14-user-demo",
+  "seriesId": "user-demo-elevated-stress-7d",
+  "subject": {
+    "event": "Self-reported elevated stress in the coming week",
+    "outcomeDefinition": "The user records stress >= 4 (on the 1-5 DailyCheckIn scale) on at least 3 of the 7 daily check-ins dated 2026-06-15 through 2026-06-21.",
+    "resolutionSource": "DailyCheckIn.stress rows for this user, which are user-entered and are not produced by the risk engine.",
+    "resolveBy": "2026-06-22T07:00:00Z"
+  },
+  "generatedAt": "2026-06-14T07:00:00Z",
+  "expiresAt": "2026-06-15T07:00:00Z",
+  "methodology": { "name": "burnout-risk-engine", "version": "v3", "changedFromPrevious": false },
+  "output": {
+    "type": "prediction",
+    "probability": 0.58,
+    "probabilityStated": "0.58",
+    "interval": { "lower": 0.44, "upper": 0.71, "level": 0.9, "method": "Wilson interval on the user's own 28-day base rate, widened for the smoothing lag" }
+  },
+  "baseline": {
+    "probability": 0.36,
+    "source": "This user's own trailing 28-day check-in history",
+    "basis": "Proportion of trailing 7-day windows in the last 28 days containing at least 3 days at stress >= 4: 10 of 28 windows."
+  },
+  "data": {
+    "sampleSize": { "n": 28, "unit": "tracked days", "basis": "The engine's full baseline window for this user. Personal baselines exist for 5 of 5 metrics (MIN_BASELINE_DAYS is 7)." },
+    "completeness": { "knownGaps": ["Exercise dimension inactive; the user has logged no exercise records."], "criticalMissing": [] },
+    "freshness": { "dataAsOf": "2026-06-14T06:00:00Z", "freshnessWindow": "P1D" },
+    "outliers": { "assessed": true, "detected": true, "handling": "One day of 14 logged work hours during a release was retained; it is a genuine workload spike of the kind this prediction is about, not a data error." }
+  },
+  "regime": { "assessed": true, "changeDetected": false, "description": "No change in the user's declared work schedule, expected weekly hours, or tracked integrations during the window." },
+  "market": { "declaredAbsent": true, "reason": "No market, exchange, or external reference expectation exists for an individual's self-reported stress. Nothing prices this outcome." },
+  "confidence": { "tier": "high", "vocabularyRef": "policy" },
+  "calibration": { "measured": false },
+  "provenance": {
+    "generatedBy": "burnout risk-engine v3",
+    "dataSources": [
+      { "name": "DailyCheckIn (user-entered mood/energy/stress)", "retrievedAt": "2026-06-14T06:55:00Z", "asOf": "2026-06-14T06:00:00Z" },
+      { "name": "DailyMetric aggregates (sleep, work, meetings)", "retrievedAt": "2026-06-14T06:55:00Z", "asOf": "2026-06-14T06:00:00Z" }
+    ],
+    "historical": { "isHistorical": false }
+  }
+}
