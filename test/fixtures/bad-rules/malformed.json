@@ -1,0 +1,24 @@
+{
+  "$comment": "A known-negative: this rule uses a camelCase id, which canonical identity forbids. Loading it must throw rather than silently skipping it, because a catalog that loads partially shrinks the denominator every score is computed over.",
+  "rules": [
+    {
+      "id": "probability.notFabricated",
+      "title": "Camel case is not canonical identity",
+      "standard": 1,
+      "category": "probability",
+      "level": "forbidden",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "full",
+      "nonExemptible": true,
+      "introducedIn": "1.0.0",
+      "description": "Present only to prove the loader rejects it.",
+      "rationale": "Two spellings of one rule is the drift canonical identity abolishes.",
+      "remediation": "Use probability.not-fabricated.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    }
+  ]
+}

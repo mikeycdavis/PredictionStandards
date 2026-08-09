@@ -1,0 +1,14 @@
+# A project that predicts rare events and needs a far larger sample than the default.
+standardVersion: "1.0.0"
+project: "strict-fixture"
+parameters:
+  minSampleSize: 500
+  disagreementThreshold: 0.05
+  materialityThreshold: 0.02
+  tolerance: 0.000001
+  defaultFreshnessWindow: "PT6H"
+  confidenceVocabulary:
+    - tier: "tentative"
+      definition: "Interval width above 0.2, or calibration unmeasured."
+    - tier: "firm"
+      definition: "Interval width below 0.1 and calibration measured out of sample within a year."

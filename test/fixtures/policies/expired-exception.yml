@@ -1,0 +1,8 @@
+# Known-negative: an exception past its expiry. A failure, not a resolution.
+standardVersion: "1.0.0"
+exceptions:
+  - rule: baseline.source-stated
+    reason: "source under embargo until Q1"
+    approvedBy: "owner"
+    approvedAt: "2025-01-01"
+    expires: "2026-01-01"

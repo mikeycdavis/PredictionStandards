@@ -1,0 +1,45 @@
+{
+  "$comment": "Rule catalog — expiration. Standard 13. Both rules apply only to predictions: an abstention makes no claim that can go out of date.",
+  "rules": [
+    {
+      "id": "expiration.expiry-present",
+      "title": "Every prediction states when it expires",
+      "standard": 13,
+      "category": "expiration",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "full",
+      "nonExemptible": false,
+      "appliesTo": "prediction",
+      "introducedIn": "1.0.0",
+      "description": "The record carries an expiresAt instant.",
+      "rationale": "A prediction with no expiry is quoted forever. Its inputs go stale, the regime shifts, and the number keeps circulating with the authority it had on the day it was made, because nothing in it says otherwise.",
+      "remediation": "Set expiresAt to the point beyond which this prediction should not be relied on.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    },
+    {
+      "id": "expiration.expiry-after-generation",
+      "title": "The expiry falls after the prediction was generated",
+      "standard": 13,
+      "category": "expiration",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "full",
+      "nonExemptible": false,
+      "appliesTo": "prediction",
+      "introducedIn": "1.0.0",
+      "description": "expiresAt is strictly later than generatedAt.",
+      "rationale": "An expiry at or before the moment of generation describes a prediction that was never valid, and is almost always a timezone or field-ordering error rather than an intention.",
+      "remediation": "Correct the timestamps; both carry explicit offsets for this reason.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    }
+  ]
+}

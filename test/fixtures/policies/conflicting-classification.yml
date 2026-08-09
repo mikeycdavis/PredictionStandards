@@ -1,0 +1,12 @@
+# Known-negative: one rule declared both not-applicable and excepted. The two make incompatible
+# claims and there is no safe way to pick one.
+standardVersion: "1.0.0"
+applicability:
+  baseline.source-stated:
+    status: not-applicable
+    reason: "no baselines in this domain"
+exceptions:
+  - rule: baseline.source-stated
+    reason: "we do use baselines but cannot cite them"
+    approvedBy: "owner"
+    approvedAt: "2026-08-01"

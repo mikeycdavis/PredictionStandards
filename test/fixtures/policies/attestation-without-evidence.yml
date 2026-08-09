@@ -1,0 +1,8 @@
+# Known-negative: an attestation with no evidence field. That is an assertion, which is exactly what
+# the attestation mechanism exists to replace.
+standardVersion: "1.0.0"
+attestations:
+  calibration.no-outcome-vindication:
+    status: approved
+    reviewedBy: "owner"
+    reviewedAt: "2026-08-01"

@@ -1,0 +1,7 @@
+# Known-negative: waiving a non-exemptible rule by declaring its subject absent. These rules have a
+# subject in every record.
+standardVersion: "1.0.0"
+applicability:
+  confidence.not-probability:
+    status: not-applicable
+    reason: "we do not think this applies to us"

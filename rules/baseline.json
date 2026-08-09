@@ -1,0 +1,46 @@
+{
+  "$comment": "Rule catalog — baseline. Standard 4.",
+  "rules": [
+    {
+      "id": "baseline.present-or-declared-absent",
+      "title": "A reference probability is given, or its absence is declared",
+      "standard": 4,
+      "category": "baseline",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "full",
+      "nonExemptible": false,
+      "appliesTo": "any",
+      "introducedIn": "1.0.0",
+      "description": "The record carries a baseline probability, or states that no baseline exists and why.",
+      "rationale": "Without a reference point, a prediction cannot be judged as informative. A 70 percent forecast is impressive against a base rate of 20 percent and worthless against a base rate of 70 percent, and the number alone does not say which.",
+      "remediation": "Record the base rate, naive forecast, or status-quo probability. If none exists, say so and explain why.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    },
+    {
+      "id": "baseline.source-stated",
+      "title": "The baseline names its source and its basis",
+      "standard": 4,
+      "category": "baseline",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "partial",
+      "nonExemptible": false,
+      "appliesTo": "any",
+      "introducedIn": "1.0.0",
+      "description": "A stated baseline says where it came from and what population and period it is a rate over.",
+      "rationale": "A base rate is only a reference if you know what it is a rate of. The same event has different base rates across different populations, and a baseline without that context can be chosen after the fact to make a prediction look good.",
+      "remediation": "State the source and describe the population and period the rate covers.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null,
+      "$assuranceNote": "The evaluator observes that a source and basis were written. It cannot check that the population described is the relevant one for this prediction."
+    }
+  ]
+}

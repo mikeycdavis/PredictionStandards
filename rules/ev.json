@@ -1,0 +1,45 @@
+{
+  "$comment": "Rule catalog — expected value. Standard 14, alongside edge. Kept in its own category because expected value is a monetary quantity and edge is a probability difference, and the whole point of the separation is that the two never share a home.",
+  "rules": [
+    {
+      "id": "ev.requires-stake-context",
+      "title": "Expected value is stated only with a stake and a payout",
+      "standard": 14,
+      "category": "ev",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "full",
+      "nonExemptible": false,
+      "appliesTo": "prediction",
+      "introducedIn": "1.0.0",
+      "description": "A record stating an expected value also states the stake, the payout, and the currency.",
+      "rationale": "Expected value is the average return on a specific wager. Without a stake and a payout there is no wager, and the number is a probability or an edge that has been relabelled — which is exactly the confusion this pack separates structurally.",
+      "remediation": "Supply stake, payout, and currency, or remove the expected value.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    },
+    {
+      "id": "ev.recomputable",
+      "title": "The stated expected value follows from the probability and the payout",
+      "standard": 14,
+      "category": "ev",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "full",
+      "nonExemptible": false,
+      "appliesTo": "prediction",
+      "introducedIn": "1.0.0",
+      "description": "The stated expected value equals the probability times the net win, minus the complement times the stake, within the project's tolerance.",
+      "rationale": "Like edge, this is fully determined by numbers already in the record, so a mismatch is always a defect rather than a difference of opinion. The most common cause is treating the payout as the net win rather than the total return.",
+      "remediation": "Recompute as p*(payout - stake) - (1-p)*stake. Payout is the total returned on a win, stake included.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "$comment": "Rule catalog — uncertainty. Standard 2.",
+  "rules": [
+    {
+      "id": "uncertainty.interval-present",
+      "title": "Every prediction states an uncertainty interval",
+      "standard": 2,
+      "category": "uncertainty",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "full",
+      "nonExemptible": false,
+      "appliesTo": "prediction",
+      "introducedIn": "1.0.0",
+      "description": "The output carries an interval with lower and upper bounds and a stated level.",
+      "rationale": "A bare point estimate implies a precision it does not have. The interval is what tells a reader whether 0.62 means somewhere between a coin flip and a near certainty, or something genuinely narrow.",
+      "remediation": "Add the interval, its level, and ideally the method used to derive it.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    },
+    {
+      "id": "uncertainty.interval-coherent",
+      "title": "The interval is coherent and contains the estimate",
+      "standard": 2,
+      "category": "uncertainty",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "full",
+      "nonExemptible": false,
+      "appliesTo": "prediction",
+      "introducedIn": "1.0.0",
+      "description": "The lower bound does not exceed the upper bound, the point estimate lies within them, and the level is strictly between 0 and 1.",
+      "rationale": "An interval that excludes its own point estimate is a transcription error or a units error, and either way the two numbers were not produced by the same computation.",
+      "remediation": "Recompute the interval from the same distribution as the point estimate.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    }
+  ]
+}

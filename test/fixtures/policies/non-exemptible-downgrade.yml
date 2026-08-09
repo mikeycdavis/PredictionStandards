@@ -1,0 +1,7 @@
+# Known-negative: waiving a non-exemptible rule by lowering its level instead of filing an
+# exception. Same outcome, quieter route.
+standardVersion: "1.0.0"
+rules:
+  edge.not-fabricated:
+    level: optional
+    note: "we would rather not fail on this"

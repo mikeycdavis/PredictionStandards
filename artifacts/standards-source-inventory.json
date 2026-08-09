@@ -1,0 +1,256 @@
+{
+  "$comment": "CANONICAL ENUMERATION. Reviewed by a human against the two source specs and committed as the source of truth for how many standards and prohibitions exist and what they are called. Extraction from the sources is tested AGAINST this file - this file is never regenerated from a run. A parser change must not be able to silently redefine the series. See scripts/inventory.mjs.",
+  "sources": [
+    "artifacts/prompt/original-prompt.md",
+    "artifacts/prompt/standards-system-requirements.md"
+  ],
+  "reviewedOn": "2026-08-09",
+  "expectedCount": 18,
+  "expectedProhibitions": 19,
+  "standards": [
+    {
+      "number": 1,
+      "title": "probability definition",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/01-probability-definition.md"
+    },
+    {
+      "number": 2,
+      "title": "uncertainty",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/02-uncertainty.md"
+    },
+    {
+      "number": 3,
+      "title": "calibration",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/03-calibration.md"
+    },
+    {
+      "number": 4,
+      "title": "reference/baseline probability",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/04-baseline-probability.md"
+    },
+    {
+      "number": 5,
+      "title": "data freshness",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/05-data-freshness.md"
+    },
+    {
+      "number": 6,
+      "title": "missing information",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/06-missing-information.md"
+    },
+    {
+      "number": 7,
+      "title": "sample-size sufficiency",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/07-sample-size-sufficiency.md"
+    },
+    {
+      "number": 8,
+      "title": "outliers",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/08-outliers.md"
+    },
+    {
+      "number": 9,
+      "title": "regime change",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/09-regime-change.md"
+    },
+    {
+      "number": 10,
+      "title": "model disagreement",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/10-model-disagreement.md"
+    },
+    {
+      "number": 11,
+      "title": "ensemble behavior",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/11-ensemble-behavior.md"
+    },
+    {
+      "number": 12,
+      "title": "false precision",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/12-false-precision.md"
+    },
+    {
+      "number": 13,
+      "title": "prediction expiration",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/13-prediction-expiration.md"
+    },
+    {
+      "number": 14,
+      "title": "edge calculation",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/14-edge-calculation.md"
+    },
+    {
+      "number": 15,
+      "title": "vig removal when relevant",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/15-vig-removal.md"
+    },
+    {
+      "number": 16,
+      "title": "confidence definitions",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/16-confidence-definitions.md"
+    },
+    {
+      "number": 17,
+      "title": "abstention",
+      "source": "artifacts/prompt/original-prompt.md",
+      "implementedBy": "standards/17-abstention.md"
+    },
+    {
+      "number": 18,
+      "title": "standards integrity",
+      "source": "artifacts/prompt/standards-system-requirements.md",
+      "$comment": "Not a bullet in the domain brief's Required standards list. It is the global invariant the standards-system spec requires under its 'Standards integrity invariant' heading, admitted to the series because that spec also requires must-never rules to be first-class standards rather than buried in documentation. Extraction locates it by that heading, not by the bullet scan.",
+      "implementedBy": "standards/18-standards-integrity.md"
+    }
+  ],
+  "prohibitions": [
+    {
+      "number": 1,
+      "text": "manufacture a prediction when evidence is insufficient",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 17,
+      "rule": "abstention.no-manufactured-prediction"
+    },
+    {
+      "number": 2,
+      "text": "confuse model confidence with event probability",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 16,
+      "rule": "confidence.not-probability"
+    },
+    {
+      "number": 3,
+      "text": "confuse probability with expected value",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 1,
+      "rule": "probability.not-expected-value"
+    },
+    {
+      "number": 4,
+      "text": "call a tiny modeled difference meaningful without justification",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 12,
+      "rule": "precision.material-difference-justified"
+    },
+    {
+      "number": 5,
+      "text": "ignore missing critical information",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 6,
+      "rule": "data.missing-critical-blocks"
+    },
+    {
+      "number": 6,
+      "text": "use stale information without accounting for staleness",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 5,
+      "rule": "data.staleness-accounted"
+    },
+    {
+      "number": 7,
+      "text": "silently change prediction methodology",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 1,
+      "rule": "probability.methodology-change-declared"
+    },
+    {
+      "number": 8,
+      "text": "present excessive decimal precision unsupported by the model",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 12,
+      "rule": "precision.supported-by-sample"
+    },
+    {
+      "number": 9,
+      "text": "fabricate probabilities",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 1,
+      "rule": "probability.not-fabricated"
+    },
+    {
+      "number": 10,
+      "text": "fabricate confidence",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 16,
+      "rule": "confidence.not-fabricated"
+    },
+    {
+      "number": 11,
+      "text": "fabricate edge",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 14,
+      "rule": "edge.not-fabricated"
+    },
+    {
+      "number": 12,
+      "text": "cherry-pick models because they predict the desired result",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 11,
+      "rule": "ensemble.no-cherry-picking"
+    },
+    {
+      "number": 13,
+      "text": "ignore major disagreement among models",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 10,
+      "rule": "ensemble.disagreement-declared"
+    },
+    {
+      "number": 14,
+      "text": "claim calibration that has not been measured",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 3,
+      "rule": "calibration.claim-requires-measurement"
+    },
+    {
+      "number": 15,
+      "text": "use post-event information in historical predictions",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 3,
+      "rule": "calibration.no-lookahead-generation"
+    },
+    {
+      "number": 16,
+      "text": "evaluate historical prediction quality using information unavailable when predictions were generated",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 3,
+      "rule": "calibration.no-lookahead-evaluation"
+    },
+    {
+      "number": 17,
+      "text": "treat a correct outcome as proof that a prediction process was good",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 3,
+      "rule": "calibration.no-outcome-vindication"
+    },
+    {
+      "number": 18,
+      "text": "treat an incorrect outcome as proof that a probabilistic prediction was bad",
+      "source": "artifacts/prompt/original-prompt.md",
+      "standard": 3,
+      "rule": "calibration.no-outcome-condemnation"
+    },
+    {
+      "number": 19,
+      "text": "A human or AI must never bypass, weaken, remove, reclassify, reinterpret, falsify evidence for, or manipulate a standard, test, applicability determination, evidence requirement, or verification mechanism solely because it prevents the desired implementation or conclusion.",
+      "source": "artifacts/prompt/standards-system-requirements.md",
+      "standard": 18,
+      "rule": "integrity.no-manipulation"
+    }
+  ]
+}

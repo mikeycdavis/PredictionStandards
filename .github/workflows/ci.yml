@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # No install step: this repository has no third-party dependencies, by the decision recorded
+      # in PROJECT.md. If an `npm ci` ever appears here, that decision changed and should be argued
+      # for rather than arrived at.
+
+      # Order matters. The invariant checks run before the tests because each one guards an
+      # assumption the tests rest on: that the series still matches its sources, that quoted
+      # prohibitions still say what the source said, and that no rule has been quietly weakened.
+      - name: Source inventory
+        run: npm run inventory
+
+      - name: Source fidelity
+        run: npm run fidelity
+
+      - name: Standards integrity
+        run: npm run integrity
+
+      - name: Project policy
+        run: npm run policy
+
+      - name: Diagram freshness
+        run: npm run diagrams
+
+      - name: Test
+        run: npm test
+
+      - name: Audit the example records
+        run: npm run audit
+
+      # The gate. `check` is the only step that produces a verdict, and it is deliberately not run
+      # with --strict: that flag belongs to `audit` and does not exist here, because a flag that
+      # changes what a verdict means is a trap.
+      - name: Check the example records
+        run: npm run check

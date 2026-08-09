@@ -1,0 +1,27 @@
+{
+  "$comment": "Rule catalog — integrity. Standard 18. One rule, carrying the nineteenth prohibition: the global standards-integrity invariant from the standards-system specification. It is the only rule in this catalog whose subject is the standards system itself rather than a prediction, and it is the reason the verdict vocabulary has a fifth value.",
+  "rules": [
+    {
+      "id": "integrity.no-manipulation",
+      "title": "No standard, test, applicability determination, evidence requirement, or verification mechanism is manipulated to reach a desired conclusion",
+      "standard": 18,
+      "category": "integrity",
+      "level": "forbidden",
+      "severity": "error",
+      "validationType": "manual-review",
+      "assurance": "partial",
+      "nonExemptible": true,
+      "attestable": true,
+      "appliesTo": "any",
+      "introducedIn": "1.0.0",
+      "description": "No rule is bypassed, weakened, removed, reclassified, reinterpreted, or given falsified evidence, and no applicability or verification mechanism is manipulated, because it stands in the way of a desired implementation or conclusion.",
+      "rationale": "Every other rule here can be satisfied by editing the rule instead of the prediction. That route is always available, always easier than gathering evidence, and leaves an artifact that looks entirely normal — a policy line, a level change, a not-applicable declaration with a plausible reason. Without this rule the system's own configuration is its largest loophole, and the loophole widens exactly when the pressure to use it is greatest.",
+      "remediation": "Restore the rule to its baseline strength and satisfy it, or abstain. If the rule is genuinely wrong, change it deliberately: edit artifacts/integrity-baseline.json, record the reason in CHANGELOG.md naming the rule id, and let the change be reviewed on its merits rather than smuggled through as configuration.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null,
+      "$assuranceNote": "Partly automated, and the boundary matters. Four manipulations are detected mechanically: an exception filed against a non-exemptible rule, a policy overriding such a rule's level, a not-applicable declaration against one, and any drift between the catalog's protection attributes and the reviewed baseline. Each is reported as a violation of this rule and escalates the verdict to BLOCKED_BY_INVARIANT. Everything else — a reason written to sound better than it is, evidence quietly overstated, a threshold tuned until a record passes — leaves no mechanical trace and is human-review territory. A passing result here means no DETECTED manipulation, never that none occurred."
+    }
+  ]
+}

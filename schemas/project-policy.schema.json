@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PredictionStandards/schemas/project-policy.schema.json",
+  "title": "Project Policy",
+  "description": "A project's declaration of which prediction standards apply to it, at what level, with what thresholds, and where a human has recorded judgement. Keys under `rules`, `applicability`, and `attestations` are canonical rule IDs and nothing else — a non-canonical spelling is rejected here rather than silently creating a second name for the same rule.",
+  "type": "object",
+  "required": ["standardVersion"],
+  "additionalProperties": false,
+
+  "properties": {
+    "standardVersion": {
+      "description": "The framework version this project's predictions are evaluated against. An unresolvable version is a configuration error, not a compliance failure.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+
+    "project": {
+      "description": "Project identity, carried into evaluator output as `project`.",
+      "type": "string",
+      "minLength": 1
+    },
+
+    "rules": {
+      "description": "Level per rule. A rule absent from this map takes the framework default from the catalog; the evaluator reports how many rules were undeclared so absence is never mistaken for a decision. A policy may not select a weaker level for a non-exemptible rule — that is the manipulation Standard 18 prohibits, and the evaluator rejects it.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/ruleId" },
+      "additionalProperties": { "$ref": "#/$defs/ruleSetting" }
+    },
+
+    "applicability": {
+      "description": "Whether a rule's subject exists in this project at all. First-class, and deliberately NOT an exception: `not-applicable` means the rule has no subject here, whereas an exception means the rule applies and the project is knowingly not satisfying it. The two must never collapse into one mechanism. Note that a record can also render a rule not-applicable on its own — an abstention has no edge to recompute — and that determination comes from the record, not from here.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/ruleId" },
+      "additionalProperties": { "$ref": "#/$defs/applicabilityDeclaration" }
+    },
+
+    "exceptions": {
+      "description": "Approved, time-bounded waivers of rules that DO apply. An expired exception is a compliance failure, not a resolution. An exception naming a non-exemptible rule is rejected rather than honoured, and escalates the verdict to BLOCKED_BY_INVARIANT.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/exception" }
+    },
+
+    "attestations": {
+      "description": "Recorded human judgement for rules the catalog says a human evaluates — chiefly the calibration and outcome-bias rules, which no amount of structure in a record can establish. An attestation is EVIDENCE, not a waiver: it says the rule applies and is satisfied on human review. It never overrides an automated failure, never applies to a rule the catalog marks non-attestable, and returns the rule to not-evaluated once stale or expired.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/ruleId" },
+      "additionalProperties": { "$ref": "#/$defs/attestation" }
+    },
+
+    "parameters": { "$ref": "#/$defs/parameters" }
+  },
+
+  "$defs": {
+    "ruleId": {
+      "description": "Canonical rule identity: `category.kebab-case-name`, dot-separated, lower-case throughout. The pattern rejects camelCase spellings by construction, so a rule cannot acquire a second name that drifts from the first.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$"
+    },
+
+    "level": {
+      "description": "Levels are preferred over booleans because `true` cannot express a considered partial adoption. `forbidden` marks a must-never rule.",
+      "type": "string",
+      "enum": ["required", "recommended", "optional", "forbidden"]
+    },
+
+    "parameters": {
+      "description": "Numeric thresholds and vocabularies this project evaluates predictions against. These live in policy rather than in the catalog on purpose: they are judgements about a domain, not facts about a rule. A minimum sample size that is right for weather is wrong for elections, and nothing in the source specification fixes any of these numbers. Every one has a documented default in the evaluator, and the report states which value was used so a verdict can never rest on an unstated threshold.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minSampleSize": {
+          "description": "Smallest sample a prediction may rest on without justification. Evaluator default: 30.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "disagreementThreshold": {
+          "description": "Ensemble spread (max member probability minus min) above which disagreement must be declared and addressed. Evaluator default: 0.10.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "materialityThreshold": {
+          "description": "Below this absolute difference, a modeled edge or departure from baseline is too small to call meaningful without saying why. Evaluator default: 0.01.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "tolerance": {
+          "description": "Numeric tolerance when recomputing a declared edge, expected value, or de-vigged probability. Evaluator default: 0.0001.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "defaultFreshnessWindow": {
+          "description": "ISO-8601 duration applied when a record declares no freshness window of its own. Evaluator default: P7D.",
+          "type": "string",
+          "pattern": "^P(?!$)([0-9]+Y)?([0-9]+M)?([0-9]+W)?([0-9]+D)?(T(?=[0-9])([0-9]+H)?([0-9]+M)?([0-9]+S)?)?$"
+        },
+        "confidenceVocabulary": {
+          "description": "The confidence tiers this project recognises, each with a definition. A tier outside this list is not a confidence level, it is an adjective.",
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/confidenceTier" }
+        }
+      }
+    },
+
+    "confidenceTier": {
+      "type": "object",
+      "required": ["tier", "definition"],
+      "additionalProperties": false,
+      "properties": {
+        "tier": { "type": "string", "minLength": 1 },
+        "definition": {
+          "description": "What this tier means in terms someone could disagree with. 'Fairly sure' is not a definition; 'interval width below 0.10 and at least three independent sources' is.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "ruleSetting": {
+      "type": "object",
+      "required": ["level"],
+      "additionalProperties": false,
+      "properties": {
+        "level": { "$ref": "#/$defs/level" },
+        "note": {
+          "description": "Why this project selected this level. Not a substitute for an exception.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "applicabilityDeclaration": {
+      "type": "object",
+      "required": ["status", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["applicable", "not-applicable"]
+        },
+        "reason": {
+          "description": "Required. A not-applicable declaration with no reason is indistinguishable from a rule that was forgotten.",
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewedAt": {
+          "description": "When this judgement was last examined. Not-applicable is a claim about the PROJECT, not about the rule, and stops being true the moment the project gains the capability.",
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "revisitWhen": {
+          "description": "The condition under which this declaration must be re-examined. This is one of the four mechanisms this repository uses to answer 'when must a previous decision be revisited' — the others being an exception's expiry, an attestation's digest going stale, and a prediction's own expiresAt.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "attestation": {
+      "type": "object",
+      "required": ["status", "reviewedBy", "reviewedAt", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "description": "Only `approved` establishes the requirement. `rejected` records that a human looked and found it unmet, which is a failure rather than silence.",
+          "type": "string",
+          "enum": ["approved", "rejected"]
+        },
+        "reviewedBy": { "type": "string", "minLength": 1 },
+        "reviewedAt": { "type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "evidence": {
+          "description": "What was examined. Required, because an attestation without it is an assertion rather than evidence — the thing this mechanism exists to avoid. For a calibration attestation this is where the measurement lives: the dataset, the period, the metric, the result.",
+          "type": "string",
+          "minLength": 1
+        },
+        "reference": { "type": "string", "minLength": 1 },
+        "expires": { "type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "reviewedAgainst": { "$ref": "#/$defs/reviewedAgainst" }
+      }
+    },
+
+    "reviewedAgainst": {
+      "description": "What the reviewer actually looked at. The evaluator digests these paths and compares; when the digest differs the attestation is stale and the rule returns to not-evaluated, because the thing reviewed is not the thing that is there now.",
+      "type": "object",
+      "required": ["paths"],
+      "additionalProperties": false,
+      "properties": {
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "digest": {
+          "description": "Digest of the reviewed paths. Omit it on a first pass — the evaluator reports the current digest so it can be recorded.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{16,64}$"
+        },
+        "revision": {
+          "description": "Informational revision identifier. Recorded, never computed — provider-neutral by design.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "exception": {
+      "type": "object",
+      "required": ["rule", "reason", "approvedBy", "approvedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "rule": { "$ref": "#/$defs/ruleId" },
+        "reason": { "type": "string", "minLength": 1 },
+        "approvedBy": {
+          "description": "Provenance. An exception nobody approved is a note.",
+          "type": "string",
+          "minLength": 1
+        },
+        "approvedAt": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "expires": {
+          "description": "Optional. Absence means the waiver is indefinite, which is a stronger claim than it looks and should be rare. An exception past its expiry is a compliance failure.",
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "reference": {
+          "description": "An ADR, issue, or work item carrying the decision.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

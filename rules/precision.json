@@ -1,0 +1,47 @@
+{
+  "$comment": "Rule catalog — precision. Standard 12. Carries two prohibitions: excessive decimal precision, and calling a tiny modeled difference meaningful without justification.",
+  "rules": [
+    {
+      "id": "precision.supported-by-sample",
+      "title": "Stated precision does not exceed what the evidence supports",
+      "standard": 12,
+      "category": "precision",
+      "level": "forbidden",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "partial",
+      "nonExemptible": false,
+      "appliesTo": "prediction",
+      "introducedIn": "1.0.0",
+      "description": "The number of decimal places a probability is stated to is no finer than the standard error of an estimate from a sample that size.",
+      "rationale": "Writing 0.6237 from a sample of forty claims a resolution the data cannot deliver: the fourth decimal is noise presented as signal. Readers reasonably treat extra digits as extra information, and here they are the opposite.",
+      "remediation": "Round to the precision the sample supports, or state the probability with fewer digits in output.probabilityStated.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null,
+      "$assuranceNote": "The bound is the binomial standard error of a proportion, which is a heuristic: it assumes independent observations and takes the declared sample at face value. It catches obvious overstatement and will not catch precision inflated by correlated data."
+    },
+    {
+      "id": "precision.material-difference-justified",
+      "title": "A tiny modeled difference is not called meaningful without justification",
+      "standard": 12,
+      "category": "precision",
+      "level": "forbidden",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "partial",
+      "nonExemptible": false,
+      "appliesTo": "prediction",
+      "introducedIn": "1.0.0",
+      "description": "Where a stated edge, or a departure from the baseline, falls below the project's materiality threshold, the record explains why it is nonetheless meaningful.",
+      "rationale": "A two-tenths-of-a-percent edge is well inside the error of almost any model that produced it, and acting on it is acting on noise. The threshold is a project judgement about its own models, which is why it lives in policy.",
+      "remediation": "Write edge.materialityNote explaining why the difference exceeds the model's own error, or stop presenting the difference as actionable.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null,
+      "$assuranceNote": "Compares a magnitude against a policy threshold and checks that an explanation exists. Whether the explanation is sound — whether the difference really does exceed the model's error — is not machine-checkable."
+    }
+  ]
+}

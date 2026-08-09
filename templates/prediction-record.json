@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "replace-me",
+  "subject": {
+    "event": "What is being predicted, in plain language",
+    "outcomeDefinition": "The precise condition that counts as the event occurring. Write it so two people holding opposite views could still agree, after the fact, which of them was right.",
+    "resolutionSource": "Who or what settles the outcome"
+  },
+  "generatedAt": "2026-01-01T00:00:00Z",
+  "expiresAt": "2026-01-02T00:00:00Z",
+  "methodology": {
+    "name": "your-method",
+    "version": "1.0.0",
+    "changedFromPrevious": false
+  },
+  "output": {
+    "type": "prediction",
+    "probability": 0.5,
+    "interval": {
+      "lower": 0.4,
+      "upper": 0.6,
+      "level": 0.9,
+      "method": "how the interval was derived"
+    }
+  },
+  "baseline": {
+    "declaredAbsent": true,
+    "reason": "Replace with a real baseline, or say honestly why none exists."
+  },
+  "data": {
+    "sampleSize": {
+      "n": 100,
+      "unit": "observations",
+      "basis": "which observations these are, and why they are the relevant ones"
+    },
+    "completeness": {
+      "knownGaps": [],
+      "criticalMissing": []
+    },
+    "freshness": {
+      "dataAsOf": "2026-01-01T00:00:00Z",
+      "freshnessWindow": "P7D"
+    },
+    "outliers": {
+      "assessed": true,
+      "detected": false
+    }
+  },
+  "regime": {
+    "assessed": true,
+    "changeDetected": false
+  },
+  "confidence": {
+    "tier": "moderate",
+    "vocabularyRef": "policy"
+  },
+  "calibration": {
+    "measured": false
+  },
+  "provenance": {
+    "generatedBy": "your-service@1.0.0",
+    "dataSources": [
+      {
+        "name": "source name",
+        "retrievedAt": "2026-01-01T00:00:00Z",
+        "asOf": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "historical": {
+      "isHistorical": false
+    }
+  }
+}

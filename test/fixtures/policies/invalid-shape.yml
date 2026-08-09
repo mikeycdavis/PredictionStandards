@@ -1,0 +1,4 @@
+# Known-negative: an unknown top-level key. A permissive parser would ignore it, and the policy
+# would silently mean something other than what its author wrote.
+standardVersion: "1.0.0"
+enforcementMode: "advisory"

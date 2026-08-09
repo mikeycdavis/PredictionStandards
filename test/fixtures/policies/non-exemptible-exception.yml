@@ -1,0 +1,7 @@
+# Known-negative: an exception against a non-exemptible rule. Rejected, not recorded.
+standardVersion: "1.0.0"
+exceptions:
+  - rule: probability.not-fabricated
+    reason: "the model is proprietary and we cannot show sources"
+    approvedBy: "owner"
+    approvedAt: "2026-08-01"

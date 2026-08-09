@@ -1,0 +1,93 @@
+# This repository's own policy.
+#
+# PredictionStandards is its own first adopter. The example records under examples/records are
+# evaluated against this file on every CI run, which means the mechanisms here are ones this project
+# has had to answer for rather than only describe. A policy that only ever appears in documentation
+# is a policy nobody has tested.
+#
+# Three mechanisms appear below and they are deliberately not interchangeable:
+#
+#   applicability   the rule has no subject here
+#   exceptions      the rule applies, and we are knowingly not satisfying it
+#   attestations    the rule applies, a human evaluated it, and here is what they examined
+#
+# Collapsing any two of them would let "we looked and it is fine" and "we did not look" produce the
+# same output, which is the failure this repository exists to prevent.
+
+standardVersion: "1.0.0"
+project: "PredictionStandards"
+
+# Thresholds this project evaluates its example records against. None of these numbers comes from the
+# source specification; they are judgements, they are stated here rather than buried in the
+# evaluator, and every report says which value it used. A project predicting elections and a project
+# predicting server load should not be expected to share them.
+parameters:
+  minSampleSize: 30
+  disagreementThreshold: 0.10
+  materialityThreshold: 0.01
+  tolerance: 0.0001
+  defaultFreshnessWindow: "P7D"
+  confidenceVocabulary:
+    - tier: "low"
+      definition: "Interval width above 0.25, or fewer than three independent data sources, or a regime change detected and only partially accounted for. Act on the direction, not the magnitude."
+    - tier: "moderate"
+      definition: "Interval width between 0.10 and 0.25, at least three independent sources, no unaccounted regime change, and ensemble spread within the project threshold."
+    - tier: "high"
+      definition: "Interval width below 0.10, calibration measured on out-of-sample data within the last year, ensemble spread within the project threshold, and no critical information missing."
+
+applicability:
+  # The example records carry a market reference, so the market and edge rules do have a subject
+  # here. Nothing in this section waives anything: every entry below is a claim that the rule's
+  # subject is genuinely absent from this repository, and each one is revisitable.
+  ev.recomputable:
+    status: applicable
+    reason: "examples/records/supported-prediction.json states an expected value with a stake and payout, so the arithmetic is checkable here."
+    reviewedAt: "2026-08-09"
+
+attestations:
+  # These are the rules a structure check cannot settle. A record can state that calibration was
+  # measured; only a human can confirm the measurement happened and was honest. Recording that
+  # judgement here is what keeps these rules from either passing vacuously or failing forever.
+  calibration.no-lookahead-evaluation:
+    status: approved
+    reviewedBy: "project-owner"
+    reviewedAt: "2026-08-09"
+    evidence: "Reviewed the two example records and the historical-lookahead detector. Neither example is a historical reconstruction, so no retrospective evaluation is performed by this repository at all; the rule is attested against the absence of any evaluation pipeline rather than against a clean one. Revisit the moment this repository scores its own past predictions."
+    reviewedAgainst:
+      paths:
+        - examples/records
+        - scripts/records.mjs
+  calibration.no-outcome-vindication:
+    status: approved
+    reviewedBy: "project-owner"
+    reviewedAt: "2026-08-09"
+    evidence: "This repository publishes no claim that any prediction process is good because a prediction came true. The example records carry no outcome field at all, and the record schema deliberately provides none: a record describes what was known when the prediction was made, not what happened afterwards."
+    reviewedAgainst:
+      paths:
+        - schemas/prediction-record.schema.json
+        - examples/records
+  calibration.no-outcome-condemnation:
+    status: approved
+    reviewedBy: "project-owner"
+    reviewedAt: "2026-08-09"
+    evidence: "The mirror of the rule above and attested on the same basis: with no outcome recorded anywhere in the schema, this repository cannot and does not judge a probabilistic prediction wrong on the strength of a single resolved event."
+    reviewedAgainst:
+      paths:
+        - schemas/prediction-record.schema.json
+        - examples/records
+  integrity.no-manipulation:
+    status: approved
+    reviewedBy: "project-owner"
+    reviewedAt: "2026-08-09"
+    evidence: "Reviewed every mechanism that could weaken a rule without saying so. The catalog's protection attributes are ratcheted against artifacts/integrity-baseline.json and checked in CI; policy overrides of a non-exemptible rule's level, and not-applicable declarations against one, are rejected by scripts/policy.mjs; exceptions against non-exemptible rules are rejected by the compliance engine and escalate the verdict to BLOCKED_BY_INVARIANT. No rule in this catalog has been weakened since the baseline was reviewed, and CHANGELOG.md records no such change."
+    reviewedAgainst:
+      paths:
+        - artifacts/integrity-baseline.json
+        - scripts/integrity.mjs
+        - scripts/policy.mjs
+        - scripts/compliance.mjs
+
+# No exceptions. When one is added it must name a rule, a reason, an approver, and a date, and it
+# must not name any of the nine non-exemptible rules — an exception against one of those is rejected
+# rather than recorded, and reported as an integrity violation.
+exceptions: []

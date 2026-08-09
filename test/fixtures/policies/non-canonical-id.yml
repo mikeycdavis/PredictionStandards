@@ -1,0 +1,7 @@
+# Known-negative: a camelCase rule id. Rejected by the schema's propertyNames pattern so a second
+# spelling of a rule cannot enter the system.
+standardVersion: "1.0.0"
+applicability:
+  probability.notFabricated:
+    status: not-applicable
+    reason: "wrong spelling"

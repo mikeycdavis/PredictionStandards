@@ -1,0 +1,3 @@
+# The minimum a policy must declare.
+standardVersion: "1.0.0"
+project: "fixture"

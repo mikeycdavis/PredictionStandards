@@ -1,0 +1,636 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PredictionStandards/schemas/prediction-record.schema.json",
+  "title": "Prediction Record",
+  "description": "One prediction, or one abstention, together with the evidence that is claimed to support it. This is the subject the standards evaluate: not a model, not a repository, but a single output and what stands behind it. Four quantities that are routinely confused are kept structurally apart here — `output.probability` is the probability of the event, `confidence.tier` is how much weight to put on that number, `edge.value` is the difference from a market reference, and `expectedValue.value` is a monetary quantity. No field can play two of those roles, so conflating them is a schema error rather than a matter of prose.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "subject",
+    "generatedAt",
+    "methodology",
+    "output",
+    "baseline",
+    "data",
+    "calibration",
+    "provenance"
+  ],
+  "additionalProperties": false,
+
+  "properties": {
+    "schemaVersion": {
+      "description": "The record schema version this document claims to follow. Versioned independently of the standards series so a record format change and a rule change are never mistaken for each other.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+
+    "id": {
+      "description": "Stable identifier for this record.",
+      "type": "string",
+      "minLength": 1
+    },
+
+    "seriesId": {
+      "description": "Optional. Links successive predictions about the same subject so a silent change of methodology between them can be detected. Without it, each record is an island and 'the method changed and nobody said so' is unobservable.",
+      "type": "string",
+      "minLength": 1
+    },
+
+    "subject": { "$ref": "#/$defs/subject" },
+
+    "generatedAt": { "$ref": "#/$defs/timestamp" },
+
+    "expiresAt": {
+      "description": "When this prediction stops being usable. Required for predictions and forbidden for abstentions, which the evaluator enforces because the schema's conditional vocabulary cannot. A prediction with no expiry is one that will still be quoted after its inputs are meaningless.",
+      "$ref": "#/$defs/timestamp"
+    },
+
+    "methodology": { "$ref": "#/$defs/methodology" },
+    "output": { "$ref": "#/$defs/output" },
+    "baseline": { "$ref": "#/$defs/baseline" },
+    "data": { "$ref": "#/$defs/data" },
+    "regime": { "$ref": "#/$defs/regime" },
+    "ensemble": { "$ref": "#/$defs/ensemble" },
+    "market": { "$ref": "#/$defs/market" },
+    "edge": { "$ref": "#/$defs/edge" },
+    "expectedValue": { "$ref": "#/$defs/expectedValue" },
+    "confidence": { "$ref": "#/$defs/confidence" },
+    "calibration": { "$ref": "#/$defs/calibration" },
+    "provenance": { "$ref": "#/$defs/provenance" }
+  },
+
+  "$defs": {
+    "timestamp": {
+      "description": "ISO-8601 instant with an explicit offset. A local time without an offset is ambiguous, and every staleness and expiry judgement in this system is arithmetic on these values.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+
+    "duration": {
+      "description": "ISO-8601 duration, e.g. P7D or PT12H.",
+      "type": "string",
+      "pattern": "^P(?!$)([0-9]+Y)?([0-9]+M)?([0-9]+W)?([0-9]+D)?(T(?=[0-9])([0-9]+H)?([0-9]+M)?([0-9]+S)?)?$"
+    },
+
+    "probability": {
+      "description": "A probability, in the unit interval. Not a percentage, not a score, not a confidence.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+
+    "subject": {
+      "description": "What is being predicted. A probability with no resolvable event attached is not a prediction about anything — this block is what makes the number falsifiable.",
+      "type": "object",
+      "required": ["event", "outcomeDefinition", "resolutionSource"],
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "description": "The event in plain language.",
+          "type": "string",
+          "minLength": 1
+        },
+        "outcomeDefinition": {
+          "description": "The precise condition that counts as the event occurring. This is where 'it will rain tomorrow' becomes something two people cannot argue about after the fact.",
+          "type": "string",
+          "minLength": 1
+        },
+        "resolutionSource": {
+          "description": "Who or what settles the outcome.",
+          "type": "string",
+          "minLength": 1
+        },
+        "resolveBy": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+
+    "methodology": {
+      "description": "How the number was produced. Named and versioned so that a change between two predictions in a series is visible rather than silent.",
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "changedFromPrevious": {
+          "description": "Whether this record's method differs from the previous record in its series. Absent means false. Declaring the change is the whole requirement; nothing here forbids changing methods.",
+          "type": "boolean"
+        },
+        "changeNote": {
+          "description": "What changed and why. Required by the evaluator when changedFromPrevious is true.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "output": {
+      "description": "The prediction itself, or the refusal to make one. Exactly one of the two variants applies, and each forbids the other's fields: an abstention carrying a probability is not an abstention, and a prediction carrying the abstention statement is a contradiction. Abstention is a first-class output here, not an error state — a well-formed abstention is a valid, supported result.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "probability", "interval"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "prediction" },
+            "probability": { "$ref": "#/$defs/probability" },
+            "probabilityStated": {
+              "description": "The probability as displayed, if it is displayed with trailing zeros that JSON cannot preserve — '0.60' parses as 0.6 and the stated precision is lost. Supply it when precision matters; the false-precision check reads it in preference to the number.",
+              "type": "string",
+              "pattern": "^[01](\\.[0-9]+)?$"
+            },
+            "interval": { "$ref": "#/$defs/interval" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "statement", "reasons"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "abstention" },
+            "statement": {
+              "description": "Fixed wording, reproduced from the source specification. Fixed so that abstention is recognisable mechanically and cannot be softened into something that reads like a weak prediction.",
+              "const": "NO PREDICTION / INSUFFICIENT EVIDENCE"
+            },
+            "reasons": {
+              "description": "Why no prediction is being made. At least one, because an unexplained abstention cannot be acted on or reviewed.",
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/abstentionReason" }
+            }
+          }
+        }
+      ]
+    },
+
+    "abstentionReason": {
+      "type": "object",
+      "required": ["code", "detail"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "insufficient-evidence",
+            "stale-data",
+            "missing-critical-information",
+            "sample-too-small",
+            "regime-change",
+            "model-disagreement",
+            "other"
+          ]
+        },
+        "detail": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "interval": {
+      "description": "The uncertainty around the point estimate. Required for every prediction: a bare number claims a precision it does not have, and the interval is what stops a 0.62 from being read as exact.",
+      "type": "object",
+      "required": ["lower", "upper", "level"],
+      "additionalProperties": false,
+      "properties": {
+        "lower": { "$ref": "#/$defs/probability" },
+        "upper": { "$ref": "#/$defs/probability" },
+        "level": {
+          "description": "Interval level, strictly between 0 and 1 — 0.9 for a 90% interval. Exactly 0 or 1 describes no interval anyone can act on.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "method": {
+          "description": "How the interval was derived, e.g. 'bootstrap, 2000 resamples'.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "baseline": {
+      "description": "The reference probability this prediction should be read against — the base rate, the naive forecast, the status quo. Either give it, or say plainly that there isn't one and why. A prediction with no reference point cannot be judged as better or worse than knowing nothing.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["probability", "source", "basis"],
+          "additionalProperties": false,
+          "properties": {
+            "probability": { "$ref": "#/$defs/probability" },
+            "source": { "type": "string", "minLength": 1 },
+            "basis": {
+              "description": "What the baseline is a rate of, and over what population and period.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["declaredAbsent", "reason"],
+          "additionalProperties": false,
+          "properties": {
+            "declaredAbsent": { "const": true },
+            "reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+
+    "data": {
+      "description": "The evidence base: how much, how complete, how fresh, and how the awkward observations were treated.",
+      "type": "object",
+      "required": ["sampleSize", "completeness", "freshness", "outliers"],
+      "additionalProperties": false,
+      "properties": {
+        "sampleSize": {
+          "type": "object",
+          "required": ["n", "unit", "basis"],
+          "additionalProperties": false,
+          "properties": {
+            "n": { "type": "integer", "minimum": 0 },
+            "unit": {
+              "description": "What is being counted — matches, days, filings. A bare n is uninterpretable.",
+              "type": "string",
+              "minLength": 1
+            },
+            "basis": {
+              "description": "Which observations these are, and why they are the relevant ones.",
+              "type": "string",
+              "minLength": 1
+            },
+            "justification": {
+              "description": "Why a sample below the project's minimum is nonetheless sufficient here. Read by the evaluator only when n falls short.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "completeness": {
+          "type": "object",
+          "required": ["knownGaps", "criticalMissing"],
+          "additionalProperties": false,
+          "properties": {
+            "knownGaps": {
+              "description": "Gaps that are known and judged not to be decisive. May be empty; an empty array is a claim, not a silence.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "criticalMissing": {
+              "description": "Missing information that bears materially on the outcome. Non-empty on a prediction demands a justification below, or the honest answer is abstention.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "justification": {
+              "description": "Why a prediction is defensible despite the critical gaps listed. Required by the evaluator when criticalMissing is non-empty on a prediction.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "freshness": {
+          "type": "object",
+          "required": ["dataAsOf"],
+          "additionalProperties": false,
+          "properties": {
+            "dataAsOf": {
+              "description": "The instant the underlying data describes — not when it was fetched. Those differ, and the difference is where staleness hides.",
+              "$ref": "#/$defs/timestamp"
+            },
+            "freshnessWindow": {
+              "description": "How long this data stays usable for this kind of prediction. Falls back to the project's default when absent.",
+              "$ref": "#/$defs/duration"
+            },
+            "stalenessAccounted": {
+              "description": "How the age of the data was allowed for — a widened interval, a decayed weight, a discount. Required by the evaluator once the data is older than its window. Using stale data is permitted; using it as though it were fresh is not.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "outliers": {
+          "type": "object",
+          "required": ["assessed"],
+          "additionalProperties": false,
+          "properties": {
+            "assessed": {
+              "description": "Whether outliers were looked for at all. False is an admission, not a pass.",
+              "type": "boolean"
+            },
+            "detected": { "type": "boolean" },
+            "handling": {
+              "description": "What was done with them, and why that is not just discarding inconvenient observations. Required by the evaluator when detected is true.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+
+    "regime": {
+      "description": "Whether the world this model learned from is still the world being predicted. A model can be sound and its training regime gone.",
+      "type": "object",
+      "required": ["assessed"],
+      "additionalProperties": false,
+      "properties": {
+        "assessed": { "type": "boolean" },
+        "changeDetected": { "type": "boolean" },
+        "description": { "type": "string", "minLength": 1 },
+        "accountedFor": {
+          "description": "How the change was handled. Required by the evaluator when changeDetected is true.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "ensemble": {
+      "description": "The individual models behind the number, when there is more than one. Present so that disagreement is visible and exclusions are answerable: a model dropped without a stated reason is indistinguishable from a model dropped for giving the wrong answer.",
+      "type": "object",
+      "required": ["members", "aggregation"],
+      "additionalProperties": false,
+      "properties": {
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "version", "probability"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 },
+              "probability": { "$ref": "#/$defs/probability" },
+              "weight": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        "aggregation": {
+          "type": "object",
+          "required": ["method"],
+          "additionalProperties": false,
+          "properties": {
+            "method": {
+              "description": "How member probabilities became the reported one, e.g. 'weighted-mean' or 'median'.",
+              "type": "string",
+              "minLength": 1
+            },
+            "note": { "type": "string", "minLength": 1 }
+          }
+        },
+        "disagreement": {
+          "type": "object",
+          "required": ["spread", "declared"],
+          "additionalProperties": false,
+          "properties": {
+            "spread": {
+              "description": "Highest member probability minus lowest. The evaluator recomputes this from the members; a stated spread that disagrees with them is a finding.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "declared": {
+              "description": "Whether the disagreement is being surfaced as material. Required to be true once the spread exceeds the project's threshold.",
+              "type": "boolean"
+            },
+            "note": {
+              "description": "What the disagreement means for this prediction. Required by the evaluator alongside declared.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "excluded": {
+          "description": "Models considered and left out. Every exclusion carries a reason — this is the anti-cherry-picking mechanism, and it is deliberately weak assurance: it catches the exclusions that were disclosed, never the ones that were never mentioned.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 },
+              "probability": { "$ref": "#/$defs/probability" },
+              "reason": {
+                "description": "Why it was excluded, in terms that do not reduce to 'it disagreed'.",
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "market": {
+      "description": "The market or reference expectation this prediction is measured against, when one exists. Either give it, or say there isn't one and why — 'when relevant' is a judgement the record must state rather than leave to inference.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["impliedProbability", "source", "asOf"],
+          "additionalProperties": false,
+          "properties": {
+            "impliedProbability": {
+              "description": "The market's probability for this outcome, after vig removal where raw prices are given.",
+              "$ref": "#/$defs/probability"
+            },
+            "source": { "type": "string", "minLength": 1 },
+            "asOf": { "$ref": "#/$defs/timestamp" },
+            "raw": {
+              "description": "The quoted prices across every outcome of the market. Supplying them is what lets the evaluator recompute the overround and check the de-vigging rather than take it on trust.",
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["outcome", "price", "format"],
+                "additionalProperties": false,
+                "properties": {
+                  "outcome": { "type": "string", "minLength": 1 },
+                  "price": { "type": "number" },
+                  "format": {
+                    "type": "string",
+                    "enum": ["decimal", "american", "probability"]
+                  }
+                }
+              }
+            },
+            "vig": { "$ref": "#/$defs/vig" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["declaredAbsent", "reason"],
+          "additionalProperties": false,
+          "properties": {
+            "declaredAbsent": { "const": true },
+            "reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+
+    "vig": {
+      "description": "The bookmaker's margin and what was done about it. Raw prices across a market sum to more than 1; treating them as probabilities without removing that excess overstates every outcome, and an edge computed against them is an artefact of the margin.",
+      "type": "object",
+      "required": ["removed", "method"],
+      "additionalProperties": false,
+      "properties": {
+        "removed": { "type": "boolean" },
+        "method": {
+          "description": "`proportional` scales every implied probability by the overround; `power` and `shin` distribute it unevenly to counter favourite-longshot bias; `none-needed` claims the prices already sum to 1. The evaluator recomputes proportional in full and checks only the presence of the others, which its assurance note states plainly.",
+          "type": "string",
+          "enum": ["proportional", "power", "shin", "none-needed"]
+        },
+        "overround": {
+          "description": "Sum of raw implied probabilities minus 1. Recomputed by the evaluator when raw prices are supplied.",
+          "type": "number"
+        }
+      }
+    },
+
+    "edge": {
+      "description": "How far this prediction departs from the market reference. Not a probability and not a monetary value: a signed difference between two probabilities. Requires a market to have been given — an edge over nothing is not an edge.",
+      "type": "object",
+      "required": ["value", "basis"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "basis": {
+          "description": "How it was computed. The evaluator recomputes the standard basis and compares.",
+          "type": "string",
+          "enum": ["probability-minus-market-implied"]
+        },
+        "materialityNote": {
+          "description": "Why an edge this small is nonetheless meaningful. Required by the evaluator when the edge falls below the project's materiality threshold — the answer to 'a tiny modeled difference called meaningful without justification'.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "expectedValue": {
+      "description": "A monetary quantity, in currency units, not a probability and not an edge. Requires a stake and a payout: without them there is no wager to have an expected value, and a number presented as EV is just a probability wearing a different name.",
+      "type": "object",
+      "required": ["value", "stake", "payout", "currency"],
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": "number" },
+        "stake": { "type": "number", "exclusiveMinimum": 0 },
+        "payout": {
+          "description": "Total returned on a win, stake included.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "currency": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "confidence": {
+      "description": "How much weight to put on the probability — a statement about the strength of the evidence, not about the event. Categorical on purpose: a numeric confidence invites arithmetic against the probability, and the two are not the same quantity. The evaluator rejects a tier that is merely a number wearing a label.",
+      "type": "object",
+      "required": ["tier", "vocabularyRef"],
+      "additionalProperties": false,
+      "properties": {
+        "tier": { "type": "string", "minLength": 1 },
+        "vocabularyRef": {
+          "description": "Where the tier's definition lives: `policy` for the project's declared vocabulary, `inline` for one carried in this record.",
+          "type": "string",
+          "enum": ["policy", "inline"]
+        },
+        "vocabulary": {
+          "description": "The tiers and their definitions, when vocabularyRef is `inline`.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["tier", "definition"],
+            "additionalProperties": false,
+            "properties": {
+              "tier": { "type": "string", "minLength": 1 },
+              "definition": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+
+    "calibration": {
+      "description": "Whether this methodology's stated probabilities have been checked against outcomes, and if so, how. A claim of calibration is a claim about a measurement someone performed; this block is where that measurement is named, and the evaluator will not accept a score without one.",
+      "type": "object",
+      "required": ["measured"],
+      "additionalProperties": false,
+      "properties": {
+        "measured": { "type": "boolean" },
+        "method": { "type": "string", "minLength": 1 },
+        "dataset": {
+          "description": "What it was measured on, including the period. A calibration measured on the data the model was fitted to is not a calibration.",
+          "type": "string",
+          "minLength": 1
+        },
+        "asOf": { "$ref": "#/$defs/date" },
+        "score": {
+          "description": "The measured result. Forbidden when measured is false — a score with no measurement behind it is the fabrication this pack exists to prevent.",
+          "type": "object",
+          "required": ["metric", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "metric": { "type": "string", "enum": ["brier", "ece", "log-loss"] },
+            "value": { "type": "number" }
+          }
+        }
+      }
+    },
+
+    "provenance": {
+      "description": "Where this record and its inputs came from, and whether it is a historical reconstruction. The historical block is what makes lookahead detectable: a prediction dated to the past that draws on data from after that date is not a prediction, it is a memory.",
+      "type": "object",
+      "required": ["generatedBy", "dataSources"],
+      "additionalProperties": false,
+      "properties": {
+        "generatedBy": { "type": "string", "minLength": 1 },
+        "dataSources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "retrievedAt", "asOf"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "retrievedAt": { "$ref": "#/$defs/timestamp" },
+              "asOf": {
+                "description": "The instant this source's content describes. Compared against the information cutoff on historical records.",
+                "$ref": "#/$defs/timestamp"
+              }
+            }
+          }
+        },
+        "historical": {
+          "type": "object",
+          "required": ["isHistorical"],
+          "additionalProperties": false,
+          "properties": {
+            "isHistorical": {
+              "description": "True when this record reconstructs a prediction as it would have been made at an earlier time — for backtesting or for measuring calibration.",
+              "type": "boolean"
+            },
+            "informationCutoff": {
+              "description": "The instant beyond which no information was permitted to inform this prediction. Required by the evaluator when isHistorical is true; every data source must be as-of at or before it.",
+              "$ref": "#/$defs/timestamp"
+            }
+          }
+        }
+      }
+    }
+  }
+}

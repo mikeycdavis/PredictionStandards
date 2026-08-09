@@ -1,0 +1,54 @@
+flowchart TB
+    subgraph sources["Sources — committed, never regenerated"]
+        brief["artifacts/prompt/<br>original-prompt.md<br><i>standards 1-17</i>"]
+        sysreq["artifacts/prompt/<br>standards-system-requirements.md<br><i>standard 18</i>"]
+        inv["standards-source-inventory.json<br><i>18 standards, 19 prohibitions</i>"]
+        base["integrity-baseline.json<br><i>protection per rule</i>"]
+    end
+
+    subgraph definition["Definition — what the rules are"]
+        docs["standards/01..18<br><i>normative documents</i>"]
+        cat["rules/*.json<br><i>50 rules, 19 forbidden, 9 non-exemptible</i>"]
+        recschema["schemas/<br>prediction-record.schema.json"]
+        polschema["schemas/<br>project-policy.schema.json"]
+    end
+
+    subgraph project["Project — the adopter's declarations"]
+        policy["project-policy.yml<br><i>levels, applicability, exceptions,<br>attestations, thresholds</i>"]
+        records["prediction records<br><i>prediction or abstention</i>"]
+    end
+
+    subgraph engine["Engine — evidence, then verdict"]
+        detect["records.mjs<br><i>detectors D1-D21</i>"]
+        comply["compliance.mjs<br><i>verdict engine</i>"]
+        cli["predictions.mjs<br><i>init audit check explain status</i>"]
+    end
+
+    subgraph guards["Invariant checks — CI gates"]
+        invchk["inventory.mjs"]
+        fidchk["fidelity.mjs"]
+        intchk["integrity.mjs"]
+        polchk["policy.mjs"]
+    end
+
+    verdict["SUPPORTED<br>SUPPORTED_WITH_EXCEPTIONS<br>INSUFFICIENTLY_SUPPORTED<br>BLOCKED_BY_INVARIANT<br>NOT_EVALUATED"]
+
+    brief --> docs
+    sysreq --> docs
+    docs -->|"one standard, N rules"| cat
+    recschema -->|"schema validation"| detect
+    records -->|"the subject"| detect
+    cat -->|"rule identity, assertBindings"| detect
+    detect -->|"findings + evidence labels"| comply
+    policy -->|"applicability, exceptions,<br>attestations, parameters"| comply
+    cat -->|"levels, nonExemptible"| comply
+    comply -->|"one row per rule"| verdict
+    cli -->|"drives"| detect
+    verdict -->|"exit 0 / 1 / 2"| cli
+
+    inv -.->|"compared against sources"| invchk
+    brief -.->|"verbatim claims held to source"| fidchk
+    base -.->|"protection drift fails CI"| intchk
+    polschema -.->|"shape + non-exemptible routes"| polchk
+    intchk -.->|"weakening must be visible"| cat
+    polchk -.-> policy

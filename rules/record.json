@@ -1,0 +1,45 @@
+{
+  "$comment": "Rule catalog — record. The record must be readable and identifiable before any standard can speak about it.",
+  "rules": [
+    {
+      "id": "record.schema-valid",
+      "title": "The record conforms to the prediction-record schema",
+      "standard": 1,
+      "category": "record",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "full",
+      "nonExemptible": false,
+      "appliesTo": "any",
+      "introducedIn": "1.0.0",
+      "description": "The record validates against schemas/prediction-record.schema.json, including the prediction-versus-abstention discriminated union.",
+      "rationale": "Every other rule reads fields from this record. A record that does not conform is not a weakly supported prediction, it is an unread document, and evaluating it field by field would report absences that are really parse failures.",
+      "remediation": "Run the evaluator's reported schema errors to ground and correct the record shape.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    },
+    {
+      "id": "record.identity-present",
+      "title": "The record identifies itself and what it predicts",
+      "standard": 1,
+      "category": "record",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "full",
+      "nonExemptible": false,
+      "appliesTo": "any",
+      "introducedIn": "1.0.0",
+      "description": "The record carries an id, and a subject naming the event, the precise outcome definition, and the source that resolves it.",
+      "rationale": "A probability is a probability of something. Without a resolvable outcome definition the number cannot be scored, cannot be disagreed with, and cannot be calibrated against anything later.",
+      "remediation": "Add the missing subject fields. Write outcomeDefinition so that two people reading it after the event would agree on whether it happened.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    }
+  ]
+}

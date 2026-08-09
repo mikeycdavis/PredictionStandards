@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "pred-2026-08-09-novel-launch-uptake",
+  "subject": {
+    "event": "First-week uptake of a newly announced product category",
+    "outcomeDefinition": "Whether unique activations of the product exceed 50,000 in the seven days following general availability, per the vendor's published activation counter as reported on day eight.",
+    "resolutionSource": "Vendor activation counter, published figure on day eight",
+    "resolveBy": "2026-09-20T00:00:00Z"
+  },
+  "generatedAt": "2026-08-09T09:00:00Z",
+  "methodology": {
+    "name": "product-uptake-analogue",
+    "version": "1.4.0",
+    "changedFromPrevious": false
+  },
+  "output": {
+    "type": "abstention",
+    "statement": "NO PREDICTION / INSUFFICIENT EVIDENCE",
+    "reasons": [
+      {
+        "code": "sample-too-small",
+        "detail": "Only four comparable category launches exist in the analogue set, against a project minimum of thirty. Three of the four are from a different pricing tier, which leaves one genuinely comparable case."
+      },
+      {
+        "code": "missing-critical-information",
+        "detail": "Neither the launch-day price nor the initial regional availability has been announced. Both moved first-week activations by more than a factor of two across the four analogue launches, so the plausible range spans the 50,000 threshold in both directions."
+      },
+      {
+        "code": "regime-change",
+        "detail": "The vendor changed its activation-counting definition in January 2026 to exclude trial activations. All four analogue launches predate the change, and the published figures are therefore not measuring the same quantity as the one this prediction would be resolved against."
+      }
+    ]
+  },
+  "baseline": {
+    "declaredAbsent": true,
+    "reason": "No base rate exists for a product category with no prior instances. The four analogue launches are from adjacent categories and, given the counting-definition change, cannot supply a rate for this outcome definition."
+  },
+  "data": {
+    "sampleSize": {
+      "n": 4,
+      "unit": "comparable category launches",
+      "basis": "Vendor product launches since 2022 that created a new category rather than iterating an existing one. Three are from a materially different pricing tier."
+    },
+    "completeness": {
+      "knownGaps": [
+        "Regional rollout schedule beyond the first two markets is unpublished.",
+        "No pre-order figures have been disclosed for this launch or for two of the four analogues."
+      ],
+      "criticalMissing": [
+        "Launch-day price",
+        "Initial regional availability",
+        "Whether the vendor will report activations under the pre-2026 or post-2026 counting definition"
+      ]
+    },
+    "freshness": {
+      "dataAsOf": "2026-08-08T00:00:00Z",
+      "freshnessWindow": "P7D"
+    },
+    "outliers": {
+      "assessed": true,
+      "detected": false,
+      "handling": "With four observations, outlier detection has no power. The assessment is recorded as performed and its result should be given no weight."
+    }
+  },
+  "regime": {
+    "assessed": true,
+    "changeDetected": true,
+    "description": "The vendor's activation-counting definition changed in January 2026 to exclude trial activations. Every analogue launch predates the change.",
+    "accountedFor": "Not accounted for. No conversion between the two counting definitions has been published, and estimating one from four launches would be inventing the very number that matters. This is a principal reason for abstaining rather than predicting with a widened interval."
+  },
+  "calibration": {
+    "measured": false
+  },
+  "provenance": {
+    "generatedBy": "forecast-service@1.4.0",
+    "dataSources": [
+      {
+        "name": "Vendor historical activation disclosures",
+        "retrievedAt": "2026-08-09T08:40:00Z",
+        "asOf": "2026-08-08T00:00:00Z"
+      },
+      {
+        "name": "Vendor product announcement, 2026-08-06",
+        "retrievedAt": "2026-08-09T08:41:00Z",
+        "asOf": "2026-08-06T14:00:00Z"
+      }
+    ],
+    "historical": {
+      "isHistorical": false
+    }
+  }
+}

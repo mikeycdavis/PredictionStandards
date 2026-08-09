@@ -1,0 +1,47 @@
+{
+  "$comment": "Rule catalog — regime. Standard 9.",
+  "rules": [
+    {
+      "id": "regime.change-assessed",
+      "title": "Whether the underlying regime still holds is assessed",
+      "standard": 9,
+      "category": "regime",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "partial",
+      "nonExemptible": false,
+      "appliesTo": "any",
+      "introducedIn": "1.0.0",
+      "description": "The record states whether the conditions the method was built for still obtain.",
+      "rationale": "A model can be sound, well fitted, and correctly implemented while the world it learned from no longer exists. Nothing internal to the model reports this; the assessment has to be made deliberately or not at all.",
+      "remediation": "Set regime.assessed, and describe what was considered.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null,
+      "$assuranceNote": "The evaluator sees that an assessment was claimed. It has no way to detect a regime change the assessor missed, which is the case that matters."
+    },
+    {
+      "id": "regime.change-accounted",
+      "title": "A detected regime change is accounted for",
+      "standard": 9,
+      "category": "regime",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "partial",
+      "nonExemptible": false,
+      "appliesTo": "any",
+      "introducedIn": "1.0.0",
+      "description": "Where a regime change was detected, the record states how the prediction accounts for it.",
+      "rationale": "Noticing that the world has shifted and then predicting as though it had not is worse than not noticing, because the record now documents that the problem was seen and disregarded.",
+      "remediation": "Describe the adjustment in regime.accountedFor — a widened interval, a reweighted sample, a shortened window — or abstain citing regime-change.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null,
+      "$assuranceNote": "Establishes that an adjustment was described, not that it was sufficient to the size of the shift."
+    }
+  ]
+}
