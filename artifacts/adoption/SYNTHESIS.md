@@ -9,26 +9,30 @@
 > findings from #3 are marked `[#3]`. Nothing else was rewritten, so the pre-#3 classification
 > remains legible.
 
-Two adoptions run against the frozen `release/v1.0.0` baseline, independently — Adoption #2 branched
-from `release/v1.0.0` rather than from Adoption #1, so "reproduced across adopters" means two runs
-that could not have contaminated each other. **No standard, rule, threshold, detector, schema, or
-v1.0 artifact was changed in either.**
+Three adoptions run against the frozen `release/v1.0.0` baseline, **each branched from
+`release/v1.0.0` directly** rather than from its predecessor, so "reproduced across adopters" means
+runs that could not have contaminated each other. **No standard, rule, threshold, detector, schema,
+or v1.0 artifact was changed in any of them.**
 
-| | Adoption #1 | Adoption #2 |
-|---|---|---|
-| Adopter | Moneyball | BurnoutPredictor |
-| Domain | sports betting, real money | personal wellness, no money |
-| Consequence of a bad prediction | financial loss | a person misjudging their own health |
-| Market / edge / EV / vig | **central** | **absent entirely** |
-| External reference to anchor on | de-vigged closing line | **none** |
-| Outcome resolvable by | real game results | user check-ins, or nothing at all |
-| Records | 3 | 4 |
-| Verdicts produced | `INSUFFICIENTLY_SUPPORTED`, `SUPPORTED` ×2 | `SUPPORTED` ×3, `BLOCKED_BY_INVARIANT` |
+| | Adoption #1 | Adoption #2 | Adoption #3 |
+|---|---|---|---|
+| Adopter | Moneyball | BurnoutPredictor | DeadInternetDetector |
+| Domain | sports betting, real money | personal wellness, no money | webpage authenticity |
+| Consequence of a bad prediction | financial loss | a person misjudging their own health | a page mislabelled |
+| Market / edge / EV / vig | **central** | **absent entirely** | absent entirely |
+| External reference to anchor on | de-vigged closing line | **none** | none |
+| Outcome resolvable by | real game results | user check-ins, or nothing at all | **varies by structure — the experiment** |
+| Purpose | broad audit | broad audit | **focused N1 replication** |
+| Records | 3 | 4 | 6 |
+| Verdicts produced | `INSUFFICIENTLY_SUPPORTED`, `SUPPORTED` ×2 | `SUPPORTED` ×3, `BLOCKED_BY_INVARIANT` | `SUPPORTED` ×6 |
 
-The two were chosen to differ in exactly the dimension that matters: whether the pack's hardest
-numerical machinery applies at all. **It does not, in half the sample, and the architecture stayed
-coherent** — every market/edge/EV rule reported not-applicable, and Adoption #2's honest record
-reached `SUPPORTED` on baseline, uncertainty, freshness, completeness, and abstention alone.
+The first two were chosen to differ in whether the pack's hardest numerical machinery applies at all.
+**It does not, in two thirds of the sample, and the architecture stayed coherent** — every
+market/edge/EV rule reported not-applicable, and Adoption #2's honest record reached `SUPPORTED` on
+baseline, uncertainty, freshness, completeness, and abstention alone.
+
+The third was not an audit. It was a single-hypothesis replication test, and its six records are five
+deliberately chosen structures plus one defeat-the-signal control.
 
 ---
 
@@ -36,8 +40,8 @@ reached `SUPPORTED` on baseline, uncertainty, freshness, completeness, and abste
 
 ### Class 1 — Reproduced across adopters
 
-Findings both adoptions produced independently. **The strongest evidence available**, and the only
-class where a single fix is clearly justified by more than one observation.
+Findings that more than one adoption produced independently. **The strongest evidence available**,
+and the only class where a change is clearly justified by more than a single observation.
 
 #### 1A — Reproduced framework defect
 
@@ -46,7 +50,16 @@ class where a single fix is clearly justified by more than one observation.
 | **R1** | The ensemble not-applicable reason asserts *"a single method produced the prediction"* — a fact inferred from a missing field and stated as observed. | F2 | G2 | present |
 | **N1 → R5** `[#3]` | **A `resolutionSource` may name the predictor's own already-computed output.** A circular, unfalsifiable record reaches `SUPPORTED` at 100%. | — | G1 | S4 |
 
-**N1 was promoted from Class 3 on independent replication.** Adoption #3 reproduced it in a
+**On R1.** In Moneyball the claim is unsupported; in BurnoutPredictor it is **flatly contradicted
+by the source**, which combines five weighted subscores under a renormalizing average; in
+DeadInternetDetector the same weighted-composite shape recurs. The framework is violating its own
+`OBSERVED` / `INFERRED` distinction, in the one place a reader is most likely to trust it.
+
+Note the shape carefully: in all three adopters the **disposition is correct** — the rules genuinely
+do not apply — and only the **explanation** is wrong. The evidence supports deleting an unsupported
+clause. It does not support making the ensemble rules fire.
+
+**On R5.** N1 was promoted from Class 3 on independent replication. Adoption #3 reproduced it in a
 structurally unrelated derived-score system — different domain, codebase, and score construction —
 so it is no longer a BurnoutPredictor modelling oddity. It is now the **second** finding with
 independent confirmation, and the more severe of the two.
@@ -65,22 +78,14 @@ A rule requiring independent resolution would reject two legitimate structures. 
 the target is falsifiability, which #3 found to be clearly identifiable and **not obviously
 machine-checkable**.
 
-In Moneyball this is unsupported; in BurnoutPredictor it is **flatly contradicted by the source**,
-which combines five weighted subscores under a renormalizing average. The framework is violating its
-own `OBSERVED` / `INFERRED` distinction, in the one place a reader is most likely to trust it.
-
-Note the shape carefully: in both adopters the **disposition is correct** — the rules genuinely do
-not apply — and only the **explanation** is wrong. The evidence supports deleting an unsupported
-clause. It does not support making the ensemble rules fire.
-
 #### 1B — Reproduced adopter patterns
 
 These are not framework defects. They are facts about how prediction systems are actually built,
-observed twice, and they bear on whether particular rules are earning their place.
+observed more than once, and they bear on whether particular rules are earning their place.
 
 | # | Pattern | Bearing |
 |---|---|---|
-| **R2** `[#3]` | **Three of three** projects store confidence **twice**: numeric and categorical. Moneyball `Confidence DECIMAL(5,4)` + `ConfidenceRating`; BurnoutPredictor `confidence Float 0..1` + `confidenceLabel`; DeadInternetDetector `confidence Float?` + `aiConfidence String?`. | Evidence *for* `confidence.not-probability` (non-exemptible). The numeric field is `0..1` in one case — visually indistinguishable from a probability. Both projects already have the categorical field the rule requires, so the rule costs nothing and names which representation is safe to publish. |
+| **R2** `[#3]` | **Three of three** projects store confidence **twice**: numeric and categorical. Moneyball `Confidence DECIMAL(5,4)` + `ConfidenceRating`; BurnoutPredictor `confidence Float 0..1` + `confidenceLabel`; DeadInternetDetector `confidence Float?` + `aiConfidence String?`. | Evidence *for* `confidence.not-probability` (non-exemptible). The numeric field is `0..1` in two of the three — visually indistinguishable from a probability. All three already have the categorical field the rule requires, so the rule costs nothing and names which representation is safe to publish. |
 | **R3** | **Neither project can abstain.** Both always emit. Moneyball gates *betting* downstream; BurnoutPredictor degrades *confidence*. Different mechanisms, identical gap. | Evidence *for* Standard 17 being the highest-value thing adoption offers. Both have the concept locally — Moneyball's MMA "cannot bet", BurnoutPredictor's per-dimension `score: null` and its "Learning your baseline" UI state — and both lose it at the output. |
 | **R4** | Both derive confidence from **evidence**, not from the prediction's extremity. Moneyball's `ConfidenceBreakdown`; BurnoutPredictor's tracked days + completeness + active dimensions + baselines present. | Independent convergence with Standard 16 R3 and R5. BurnoutPredictor's implementation matches R3 more closely than this repository's own example vocabulary. |
 
@@ -88,14 +93,14 @@ observed twice, and they bear on whether particular rules are earning their plac
 
 ### Class 2 — Adopter-specific
 
-Exposed by one adopter and **shown not to generalise**, because the other adopter's structure could
-not produce them. This is the discrimination the two-adopter design was built to provide.
+Exposed by one adopter and **shown not to generalise**, because the other adopters' structures could
+not produce them. This is the discrimination the multi-adopter design was built to provide.
 
 | # | Finding | Confined to | Evidence it does not generalise |
 |---|---|---|---|
-| **A1** | `tolerance` conflates probability-space and currency-space, so an expected value rounded to cents fails permanently (`6.99` vs exact `6.988`). | money-bearing predictions | BurnoutPredictor has no expected value; the rule reported not-applicable and the defect could not occur. |
-| **A2** | A stated `market.vig.overround` is never verified against the quoted prices. | market-referenced predictions | No market in #2. |
-| **A3** | Moneyball's model-agreement gate uses **std dev < 0.08**; the pack uses **max−min spread > 0.10**. For two models these differ by a factor of two, so transcribing the number loosens the gate ~60%. | ensemble-bearing predictions | BurnoutPredictor has no homogeneous ensemble. |
+| **A1** | `tolerance` conflates probability-space and currency-space, so an expected value rounded to cents fails permanently (`6.99` vs exact `6.988`). | money-bearing predictions | Neither #2 nor #3 has an expected value; the rule reported not-applicable in both and the defect could not occur. **Failed to reproduce twice.** |
+| **A2** | A stated `market.vig.overround` is never verified against the quoted prices. | market-referenced predictions | No market in #2 or #3. |
+| **A3** | Moneyball's model-agreement gate uses **std dev < 0.08**; the pack uses **max−min spread > 0.10**. For two models these differ by a factor of two, so transcribing the number loosens the gate ~60%. | ensemble-bearing predictions | Neither #2 nor #3 has a homogeneous ensemble. |
 
 A1 is a genuine unit error and remains real — "adopter-specific" describes its *blast radius*, not
 its validity.
@@ -180,11 +185,15 @@ evidence. Nothing was added to the abstention record to make it green; two field
 the same three declared inadequacies became its reasons. Abstention is not the way to launder a
 failing record.
 
-**The frozen-baseline protocol paid for itself.** Two adoptions produced one reproduced defect, three
-newly exposed findings, three shown to be adopter-specific, three boundaries, and four
-policy/documentation candidates — with **zero changes to v1.0.0**. A1 in particular would have looked
-like a general defect from Adoption #1 alone; Adoption #2 is what showed it confined to the money
-path.
+**The frozen-baseline protocol paid for itself.** Three adoptions produced **two independently
+reproduced defects** (R1, R5), four single-observation findings, three shown to be adopter-specific,
+three boundaries, and four policy/documentation candidates — with **zero changes to v1.0.0**.
+
+Two results depended on having more than one adopter and could not have been obtained otherwise.
+A1 would have looked like a general defect from Adoption #1 alone; #2 and #3 both failed to
+reproduce it, confining it to the money path. R5 would have looked like a BurnoutPredictor modelling
+oddity from #2 alone; #3 established it as a hole in the framework — and, by supplying a legitimate
+non-independent structure, ruled out the fix that #2 alone would have suggested.
 
 ---
 
