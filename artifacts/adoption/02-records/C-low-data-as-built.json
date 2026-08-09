@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "burnout-proxy-2026-06-05-newuser",
+  "seriesId": "newuser-elevated-stress-7d",
+  "subject": {
+    "event": "Self-reported elevated stress in the coming week",
+    "outcomeDefinition": "The user records stress >= 4 (on the 1-5 DailyCheckIn scale) on at least 3 of the 7 daily check-ins dated 2026-06-06 through 2026-06-12.",
+    "resolutionSource": "DailyCheckIn.stress rows for this user, which are user-entered and are not produced by the risk engine.",
+    "resolveBy": "2026-06-13T07:00:00Z"
+  },
+  "generatedAt": "2026-06-05T07:00:00Z",
+  "expiresAt": "2026-06-06T07:00:00Z",
+  "methodology": { "name": "burnout-risk-engine", "version": "v3", "changedFromPrevious": false },
+  "output": {
+    "type": "prediction",
+    "probability": 0.71,
+    "probabilityStated": "0.71",
+    "interval": { "lower": 0.3, "upper": 0.94, "level": 0.9, "method": "Wilson interval on 5 observations" }
+  },
+  "baseline": {
+    "declaredAbsent": true,
+    "reason": "No personal baseline exists yet. computeMetricBaseline returns null below MIN_BASELINE_DAYS (7), and this user has 5 tracked days, so all five metric baselines are null."
+  },
+  "data": {
+    "sampleSize": { "n": 5, "unit": "tracked days", "basis": "Days since signup with any logged metric. The engine's fullTrackedDays is 28." },
+    "completeness": {
+      "knownGaps": [],
+      "criticalMissing": [
+        "Four of five scoring dimensions are inactive: no sleep records, no exercise records, no calendar integration, no work sessions. Only DailyCheckIn is populated.",
+        "No personal baseline for any metric, so every subscore is judged against nothing."
+      ]
+    },
+    "freshness": { "dataAsOf": "2026-06-05T06:00:00Z", "freshnessWindow": "P1D" },
+    "outliers": { "assessed": true, "detected": false, "handling": "With 5 observations outlier detection has no power; the result should be given no weight." }
+  },
+  "regime": { "assessed": true, "changeDetected": false, "description": "User onboarded 5 days ago; no schedule changes recorded." },
+  "market": { "declaredAbsent": true, "reason": "No market or external reference expectation exists for an individual's self-reported stress." },
+  "confidence": { "tier": "low", "vocabularyRef": "policy" },
+  "calibration": { "measured": false },
+  "provenance": {
+    "generatedBy": "burnout risk-engine v3",
+    "dataSources": [
+      { "name": "DailyCheckIn (user-entered mood/energy/stress)", "retrievedAt": "2026-06-05T06:55:00Z", "asOf": "2026-06-05T06:00:00Z" }
+    ],
+    "historical": { "isHistorical": false }
+  }
+}
