@@ -1,6 +1,13 @@
-# Adoption synthesis — #1 Moneyball and #2 BurnoutPredictor
+# Adoption synthesis — #1 Moneyball, #2 BurnoutPredictor, #3 DeadInternetDetector
 
 **Status: evidence, classified. This document does not declare v1.1 requirements.**
+
+> **Updated after Adoption #3.** Adoption #3 was a focused N1 replication experiment rather than a
+> broad audit; its full findings are in [`03-deadinternet.md`](03-deadinternet.md). The
+> classification below has been revised in exactly two places, both recorded inline: **N1 moved from
+> Class 3 to Class 1** on independent replication, and **R2 gained a third observation**. New
+> findings from #3 are marked `[#3]`. Nothing else was rewritten, so the pre-#3 classification
+> remains legible.
 
 Two adoptions run against the frozen `release/v1.0.0` baseline, independently — Adoption #2 branched
 from `release/v1.0.0` rather than from Adoption #1, so "reproduced across adopters" means two runs
@@ -34,9 +41,29 @@ class where a single fix is clearly justified by more than one observation.
 
 #### 1A — Reproduced framework defect
 
-| # | Finding | #1 | #2 |
-|---|---|---|---|
-| **R1** | The ensemble not-applicable reason asserts *"a single method produced the prediction"* — a fact inferred from a missing field and stated as observed. | F2 | G2 |
+| # | Finding | #1 | #2 | #3 |
+|---|---|---|---|---|
+| **R1** | The ensemble not-applicable reason asserts *"a single method produced the prediction"* — a fact inferred from a missing field and stated as observed. | F2 | G2 | present |
+| **N1 → R5** `[#3]` | **A `resolutionSource` may name the predictor's own already-computed output.** A circular, unfalsifiable record reaches `SUPPORTED` at 100%. | — | G1 | S4 |
+
+**N1 was promoted from Class 3 on independent replication.** Adoption #3 reproduced it in a
+structurally unrelated derived-score system — different domain, codebase, and score construction —
+so it is no longer a BurnoutPredictor modelling oddity. It is now the **second** finding with
+independent confirmation, and the more severe of the two.
+
+Adoption #3 also established what the eventual property is **not**. Its record S5 is resolved by the
+same analyzer, running the same methodology on the same upstream pipeline — maximal
+non-independence — and is entirely legitimate, because it forecasts a future measurement that making
+the prediction does not determine. So:
+
+- **externality** — not required (S5 has none)
+- **independent observation** — not required (S5 shares everything)
+- **semantic correspondence** — necessary but not sufficient (S4 has it)
+- **falsifiability at prediction time** — **this is the property**
+
+A rule requiring independent resolution would reject two legitimate structures. Whatever v1.1 does,
+the target is falsifiability, which #3 found to be clearly identifiable and **not obviously
+machine-checkable**.
 
 In Moneyball this is unsupported; in BurnoutPredictor it is **flatly contradicted by the source**,
 which combines five weighted subscores under a renormalizing average. The framework is violating its
@@ -53,7 +80,7 @@ observed twice, and they bear on whether particular rules are earning their plac
 
 | # | Pattern | Bearing |
 |---|---|---|
-| **R2** | Both projects store confidence **twice**: numeric and categorical. Moneyball `Confidence DECIMAL(5,4)` + `ConfidenceRating`; BurnoutPredictor `confidence Float 0..1` + `confidenceLabel`. | Evidence *for* `confidence.not-probability` (non-exemptible). The numeric field is `0..1` in one case — visually indistinguishable from a probability. Both projects already have the categorical field the rule requires, so the rule costs nothing and names which representation is safe to publish. |
+| **R2** `[#3]` | **Three of three** projects store confidence **twice**: numeric and categorical. Moneyball `Confidence DECIMAL(5,4)` + `ConfidenceRating`; BurnoutPredictor `confidence Float 0..1` + `confidenceLabel`; DeadInternetDetector `confidence Float?` + `aiConfidence String?`. | Evidence *for* `confidence.not-probability` (non-exemptible). The numeric field is `0..1` in one case — visually indistinguishable from a probability. Both projects already have the categorical field the rule requires, so the rule costs nothing and names which representation is safe to publish. |
 | **R3** | **Neither project can abstain.** Both always emit. Moneyball gates *betting* downstream; BurnoutPredictor degrades *confidence*. Different mechanisms, identical gap. | Evidence *for* Standard 17 being the highest-value thing adoption offers. Both have the concept locally — Moneyball's MMA "cannot bet", BurnoutPredictor's per-dimension `score: null` and its "Learning your baseline" UI state — and both lose it at the output. |
 | **R4** | Both derive confidence from **evidence**, not from the prediction's extremity. Moneyball's `ConfidenceBreakdown`; BurnoutPredictor's tracked days + completeness + active dimensions + baselines present. | Independent convergence with Standard 16 R3 and R5. BurnoutPredictor's implementation matches R3 more closely than this repository's own example vocabulary. |
 
@@ -82,9 +109,11 @@ Class 1**, and the note against each says what would supply it.
 
 | # | Finding | Severity | What would confirm it |
 |---|---|---|---|
-| **N1** | **A `resolutionSource` may name the predictor's own output.** Record A defines its outcome circularly, resolves against `RiskAssessment.overallScore`, and reaches `SUPPORTED` at 100%. Standard 1 R1 requires a resolution source; nothing requires it to be independent of the predictor. | **Highest of any finding in either adoption** | Any adopter whose "outcome" is a derived index rather than an event — a credit score, a health index, a risk rating. Common enough that a third adoption would likely settle it. |
+| ~~N1~~ | **Promoted to Class 1 as R5** by Adoption #3. Left here struck through so the classification's history stays legible: this is what a Class 3 finding looks like immediately before it earns replication. | — | Settled by #3, as anticipated. |
 | **N2** | `market.*` absence **must be declared**; `edge.*` and `ev.*` absence may be silently omitted. Same class of concept, two standards of evidence. | Low | Any adopter that omits one and declares the other. |
-| **N3** | No vocabulary for **disagreement among heterogeneous components of a composite index**. Standard 10 covers multiple models estimating one quantity; sleep-90 / mood-20 averaging to the middle is the same hiding-a-split failure with no rule reaching it. | Medium — a gap, not a defect | Any adopter producing a weighted composite index. |
+| **N3** | No vocabulary for **disagreement among heterogeneous components of a composite index**. Standard 10 covers multiple models estimating one quantity; sleep-90 / mood-20 averaging to the middle is the same hiding-a-split failure with no rule reaching it. | Medium — a gap, not a defect | **Partially confirmed by #3**: DeadInternetDetector's five category scores are the same weighted-composite shape. Not independently *exercised*, so not promoted. |
+| **N4** `[#3]` | The abstention statement **conflates two different refusals**. A descriptive index with complete evidence must assert the fixed `NO PREDICTION / INSUFFICIENT EVIDENCE`, where the first clause is true and the second is false. | Medium | Any adopter producing a descriptive index alongside predictions. |
+| **N5** `[#3]` | Adopters record **method limitations** (`Analysis.limitations`) distinct from data gaps. The pack has only `knownGaps`, so "what this methodology structurally cannot see" has nowhere to go. | Low | Any adopter maintaining a limitations field. |
 
 N1 is the finding most likely to matter and the one most resistant to a naive fix. Requiring
 independence is easy to state and hard to check: Adoption #2's honest record (B) resolves against
@@ -172,3 +201,22 @@ requirement.
 
 A third adoption in a third shape would most efficiently test N1, which needs an adopter whose
 outcome is a derived index rather than an event.
+
+---
+
+## Post-#3 position
+
+**Two findings now carry independent replication: R1 and R5 (formerly N1).** Both are cases of the
+framework asserting or accepting something the evidence does not support, and the evidence now
+indicates that both corrections are narrower than they first appeared:
+
+- **R1** — stop inferring *"a single method produced the prediction"* from an absent `ensemble`
+  block. The disposition is correct in all three adopters; only the sentence is wrong.
+- **R5** — the target property is falsifiability at prediction time, **not** independent resolution.
+  A rule demanding independence would reject legitimate structures observed in #3.
+
+Everything else remains single-observation or boundary. F1 has now failed to reproduce across two
+further adopters and is confined to the money path with reasonable confidence.
+
+**Three deliberately different adopters is the sample this review has.** The next step is the v1.1
+evidence review, not a fourth adoption.
