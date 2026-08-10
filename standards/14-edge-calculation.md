@@ -98,6 +98,15 @@ The market is an aggregate of many participants' judgement, and a persistent edg
 one is more often a defect in the model than an inefficiency. Edge measures disagreement, and
 disagreement is a question, not an answer.
 
+**This is not a criticism of having a decision rule.** A project that acts when its model probability
+clears some threshold is doing something ordinary and sensible, and this pack takes no position on
+where that threshold belongs — it is a policy about what to *do*, downstream of the question this
+pack answers, which is whether a prediction is supported by its evidence. Adoption #1 read R6 as
+disapproving of its own betting gate; it does not. What R6 forbids is a decision rule standing in
+place of the support question, so that a number is acted on *because* it clears a threshold and never
+because anything established that the number deserves belief. Support first, decision after. A record
+deliberately carries no recommendation field, so nothing here inspects the decision at all.
+
 ## Prohibitions
 
 | Prohibition | Rule | Requirement | Non-exemptible |

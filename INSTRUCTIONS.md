@@ -73,6 +73,18 @@ prediction, and the usual response to that is to weaken the check.
 | `BLOCKED_BY_INVARIANT` | **Stop.** See §8. |
 | `NOT_EVALUATED` | Fix the configuration. This says nothing about the prediction. |
 
+**`INSUFFICIENTLY_SUPPORTED` is narrower than it sounds, and the boundary surprises people.** A
+record that predicts *while declaring the evidence inadequate* — unjustified critical gaps,
+unaccounted staleness, an unjustified small sample, undeclared model disagreement — does not land
+here. It violates `abstention.no-manufactured-prediction`, which is non-exemptible, so the verdict
+escalates to `BLOCKED_BY_INVARIANT`.
+
+That is correct by design rather than an accident of ordering. The first prohibition in the source
+brief is manufacturing a prediction when the evidence does not support one, and a rule no policy can
+waive is what a prohibition means here. So `INSUFFICIENTLY_SUPPORTED` covers evidence that is
+*missing or malformed*, and insufficiency that is **the reason not to predict at all** is a stop
+rather than a fix. The remedy is not a better record; it is an abstention.
+
 ## 6. Determinism
 
 Pass `--as-of=<ISO instant>` to pin every staleness and expiry comparison. Without it the current

@@ -42,6 +42,15 @@ arithmetic against the probability — multiplying them, comparing them, averagi
 those operations is meaningful. The record schema enforces this by rejecting tiers that are merely
 numbers wearing a label.
 
+**A numeric measure and a categorical tier may legitimately coexist.** All three adopters of this
+pack independently stored both: an internal numeric evidence-quality score and a categorical label
+published beside the prediction. That is not a violation, and the prohibition is not about
+coexistence. It governs *interpretation* — which representation is published as confidence, and
+whether anything invites a reader to read it as a probability. Keep the numeric measure if it is
+useful; publish the tier. What is forbidden is putting a bare `0..1` number in
+`confidence.tier`, where it sits beside `output.probability` and is visually indistinguishable
+from it.
+
 ### R2 — Tiers are defined before they are used
 
 A vocabulary of tiers, each with a definition, MUST be available in the project policy or inline in

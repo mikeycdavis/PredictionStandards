@@ -69,12 +69,12 @@
       "additionalProperties": false,
       "properties": {
         "minSampleSize": {
-          "description": "Smallest sample a prediction may rest on without justification. Evaluator default: 30.",
+          "description": "Smallest sample a prediction may rest on without justification. Evaluator default: 30 — a working value with NO SOURCE BEHIND IT, chosen so the evaluator runs out of the box. It is comfortable for a stable high-frequency process and hopeless for a rare event, and one adopter found it colliding with a domain-natural 28. Set it from your domain rather than inheriting it.",
           "type": "integer",
           "minimum": 1
         },
         "disagreementThreshold": {
-          "description": "Ensemble spread (max member probability minus min) above which disagreement must be declared and addressed. Evaluator default: 0.10.",
+          "description": "Threshold on ONE SPECIFIC STATISTIC: the spread between the highest and lowest member probability (max minus min). Not a standard deviation, not a variance, not an interquartile range — a value transcribed from a threshold on any of those means something different here, and for two members a std-dev threshold moved across unchanged loosens the gate by roughly a factor of two. Standard 10 chooses max-minus-min deliberately, because it is the statistic a two-way split cannot hide behind. Evaluator default: 0.10.",
           "type": "number",
           "minimum": 0,
           "maximum": 1

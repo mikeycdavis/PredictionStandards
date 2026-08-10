@@ -86,6 +86,34 @@ which is the decision record for this release. No change originates outside cand
   under-declaration boundary. An empty `criticalMissing` and an omitted `ensemble` have no
   independent referent inside the artifact, and nothing in this release reaches them.
 
+- **C6 — the disagreement threshold names its statistic.** `parameters.disagreementThreshold` is a
+  threshold on max-minus-min spread, and the schema now says so. Adoption #1 (A3) transcribed a
+  std-dev threshold of 0.08 into a field expecting a spread, which for two members loosens the gate
+  by roughly a factor of two, silently. The statistic is deliberately not configurable: max-minus-min
+  is the one a two-way split cannot hide behind, and letting a project select another would sanction
+  choosing the measure that hides its own split.
+
+- **C7 — `minSampleSize: 30` is documented as arbitrary.** The value is unchanged. The schema now
+  states that no source stands behind it and that it must be set per domain; Adoption #2 found it
+  colliding with a domain-natural 28, and the override mechanism worked exactly as designed. The
+  default was not lowered, because transplanting one adopter's domain constant into every other
+  domain is the same error in the other direction.
+
+- **C8 — the pack's position on decision rules is stated.** Standard 14 R6 now says plainly that a
+  project's threshold for acting is a policy downstream of the support question and outside this
+  pack's authority. Adoption #1 read R6 as disapproving of its own betting gate; it does not.
+
+- **C9 — the verdict boundary is documented.** `INSUFFICIENTLY_SUPPORTED` covers evidence that is
+  missing or malformed. Insufficiency that is *the reason not to predict at all* violates
+  `abstention.no-manufactured-prediction`, which is non-exemptible, so it escalates to
+  `BLOCKED_BY_INVARIANT`. Correct by design, and surprising until written down.
+
+- **C10 — legitimate coexistence of numeric and categorical confidence.** Standard 16 now says that
+  an internal numeric evidence-quality measure may sit alongside a published categorical tier. All
+  three adopters built exactly that, independently. `confidence.not-probability` governs which
+  representation is published, not whether both may exist, and a non-exemptible prohibition read as
+  banning the pair would cost adopters a useful measure for nothing.
+
 - **C1 — the ensemble not-applicable reason no longer asserts what produced the prediction.** It read
   `"This record names no ensemble; a single method produced the prediction."` The second clause was
   inferred from a missing field and stated as observed, and Adoptions #1, #2, and #3 all found it —
