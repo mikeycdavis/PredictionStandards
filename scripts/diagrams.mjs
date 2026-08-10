@@ -3,9 +3,10 @@
  * Diagram freshness: every `.mmd` must match the copy embedded in Markdown, and any committed
  * `.svg` must have been rendered from the current `.mmd`.
  *
- * Standard 39 R4 requires CI to detect when Mermaid source and generated output are out of sync.
- * ADR 0003 makes the `.mmd` canonical; a rendered `.svg` and an embedded fence are both derived, and
- * a derived copy that no longer matches its source is the exact drift the ADR exists to prevent.
+ * No standard in this pack requires this check — it guards the repository's own documentation
+ * rather than any prediction. It is kept because `docs/architecture.mmd` is canonical and both the
+ * rendered `.svg` and the fence embedded in `docs/architecture.md` are derived from it, and a
+ * derived copy that no longer matches its source is drift a reader has no way to detect.
  *
  * The design constraint worth naming: **this check requires no Mermaid toolchain.** It compares
  * text, not pictures. That is what lets a zero-dependency repository enforce the rule at all — a
@@ -98,7 +99,7 @@ async function check(root) {
           allBlocks.length === 0
             ? "is not embedded in any document"
             : "no embedded copy matches this source — a document is showing a stale diagram",
-        remediation: "Re-embed the .mmd verbatim in its document. The .mmd is canonical (ADR 0003).",
+        remediation: "Re-embed the .mmd verbatim in its document. The .mmd is canonical.",
       });
     }
 
@@ -109,7 +110,7 @@ async function check(root) {
       await stat(svg);
       svgText = await readFile(svg, "utf8");
     } catch {
-      // No render committed. ADR 0003 permits this where the toolchain is unavailable, provided the
+      // No render committed. Permitted where the toolchain is unavailable, provided the
       // absence is declared — which is a documentation obligation, not something checkable here.
     }
     if (svgText !== null) {
@@ -131,7 +132,7 @@ async function check(root) {
     }
   }
 
-  // 3. A hand-authored SVG with no .mmd beside it is what ADR 0003 abolished.
+  // 3. A hand-authored SVG with no .mmd beside it has no canonical source to drift from.
   for (const file of files.filter((f) => f.endsWith(".svg"))) {
     const source = file.replace(/\.svg$/, ".mmd");
     if (!sources.includes(source)) {
@@ -139,7 +140,7 @@ async function check(root) {
         file: rel(file),
         message: "SVG has no .mmd source",
         remediation:
-          "Diagrams are authored in Mermaid and rendered (ADR 0003). If this is not a diagram, move it out of a diagram path.",
+          "Diagrams are authored in Mermaid and rendered. If this is not a diagram, move it out of a diagram path.",
       });
     }
   }

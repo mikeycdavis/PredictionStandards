@@ -118,6 +118,29 @@ test("the README status table has a row per standard, pointing at a real file", 
   }
 });
 
+test("every standard and ADR a script cites exists in this repository", async () => {
+  // Reference-port debris. The evaluator machinery was adapted from a 44-standard pack, and seven
+  // comments still cited that pack's numbering — "Standard 24 R2", "Standard 39 R4", an ADR 0003
+  // that here is about something else entirely. None affected behaviour, and all of them told a
+  // reader to go and look up a requirement that does not exist. This is the cheap guard against the
+  // next one, and against a citation going stale when the series changes.
+  const files = (await readdir(path.join(ROOT, "scripts"))).filter((f) => f.endsWith(".mjs"));
+  const highest = Math.max(...inventory.standards.map((s) => s.number));
+  const adrs = new Set(
+    (await readdir(path.join(ROOT, "artifacts/adr"))).map((f) => f.slice(0, 4)),
+  );
+  for (const file of files) {
+    const text = await read(path.join("scripts", file));
+    for (const [, number] of text.matchAll(/\bStandard (\d+)\b/g)) {
+      const n = Number(number);
+      assert.ok(n >= 1 && n <= highest, `scripts/${file} cites Standard ${n}; this series runs 1..${highest}`);
+    }
+    for (const [, number] of text.matchAll(/\bADR (\d{4})\b/g)) {
+      assert.ok(adrs.has(number), `scripts/${file} cites ADR ${number}, which does not exist`);
+    }
+  }
+});
+
 test("every npm script the docs mention actually exists", async () => {
   const scripts = new Set(Object.keys(packageJson.scripts));
   const docs = (await read("README.md")) + (await read("INSTRUCTIONS.md")) + (await read("PROJECT.md"));

@@ -1,6 +1,5 @@
 /**
- * The rule catalog: the single source of machine truth for rule identity and metadata
- * (Standard 27).
+ * The rule catalog: the single source of machine truth for rule identity and metadata.
  *
  * The architectural rule this module exists to hold, and which the whole compliance system rests on:
  *
@@ -101,7 +100,7 @@ export async function loadCatalog(dir = CATALOG_DIR) {
         throw new CatalogError(`${where}: nonExemptible must be a boolean`);
       }
       // Present from the first release even when empty: adding them later means every existing rule
-      // silently lacks them, and consumers treat their absence as meaningful (Standard 27 R2).
+      // silently lacks them, and consumers treat their absence as meaningful.
       for (const field of ["deprecatedIn", "supersededBy", "removedIn"]) {
         if (!(field in rule)) throw new CatalogError(`${where}: lifecycle field '${field}' must be present`);
       }
@@ -173,8 +172,9 @@ export function assertBindings(catalog, ids) {
  * The hazard this exists to counter: someone reads `COMPLIANT` and forgets that the catalog covers a
  * subset of the framework. A verdict is a statement about the rules that exist as rules; this is a
  * statement about how much of the framework has been turned into rules at all. Mixing the two would
- * make a coverage improvement look like a compliance improvement, which is the elevation
- * Standard 24 R2 forbids one level up.
+ * make a coverage improvement look like a compliance improvement — the same elevation
+ * [Standard 18](../standards/18-standards-integrity.md) R4 forbids one level down, where a skipped
+ * check must never read as a pass.
  *
  * `fullyMachineRepresented` is deliberately strict: a standard counts only when every one of its
  * catalogued rules is both evaluated by the validator AND carries assurance better than `none`.

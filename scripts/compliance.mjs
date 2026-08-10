@@ -207,7 +207,7 @@ export function evaluate({
     // is not-evaluated, even if the evaluator claims to have examined it and found nothing —
     // "no automated finding" is not evidence for a requirement whose evaluator is a human. Reaching
     // `passed` that way was possible before attestations existed, and it is the false green
-    // Standard 24 R2 forbids.
+    // Standard 18 R4 forbids: a skipped check is never a pass.
     if (rule.validationType === "manual-review" || !examined.has(rule.id)) {
       results.push(
         base(rule, level, RESULT.skipped, "not-evaluated", `No implemented check evaluates ${rule.id}.`),
@@ -344,7 +344,7 @@ export function evaluate({
  *
  * The rules are ADR 0005's, and the ordering is the interesting part: contradiction is checked
  * first, because a human saying a rule is satisfied does not change what a check observed. Evidence
- * outranks assertion (Standard 38 R4), and that is also why an attestation cannot bypass a
+ * outranks assertion, and that is also why an attestation cannot bypass a
  * nonExemptible rule — not as a separate prohibition, but because the automated failure survives.
  */
 function judgeAttestation(rule, attestation, hits, today, digests) {
