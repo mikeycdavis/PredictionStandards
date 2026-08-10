@@ -1,0 +1,161 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "pred-2026-08-09-egll-precip-legacy",
+  "seriesId": "egll-daily-precipitation",
+  "subject": {
+    "event": "Measurable precipitation at London Heathrow on 12 August 2026",
+    "outcomeDefinition": "Total precipitation exceeding 0.2 mm recorded at station EGLL between 00:00 and 23:59 UTC on 2026-08-12, per the Met Office daily climate record published within 72 hours of that date.",
+    "resolutionSource": "Met Office daily climate record for station EGLL",
+    "resolveBy": "2026-08-15T12:00:00Z"
+  },
+  "generatedAt": "2026-08-09T06:00:00Z",
+  "expiresAt": "2026-08-10T06:00:00Z",
+  "methodology": {
+    "name": "ensemble-precipitation-classifier",
+    "version": "4.2.0",
+    "changedFromPrevious": false
+  },
+  "output": {
+    "type": "prediction",
+    "probability": 0.62,
+    "probabilityStated": "0.62",
+    "interval": {
+      "lower": 0.55,
+      "upper": 0.7,
+      "level": 0.9,
+      "method": "bootstrap over 2000 resamples of the analogue-day set"
+    }
+  },
+  "baseline": {
+    "probability": 0.44,
+    "source": "Met Office 1991-2020 climatological normals for EGLL",
+    "basis": "Proportion of 12 August dates with precipitation above 0.2 mm across the 30-year normal period, n = 30."
+  },
+  "data": {
+    "sampleSize": {
+      "n": 1240,
+      "unit": "analogue days",
+      "basis": "Days since 2016 whose 500 hPa synoptic pattern matched the current analysis within the classifier's similarity threshold, restricted to August and the two adjacent weeks."
+    },
+    "completeness": {
+      "knownGaps": [
+        "Radar coverage for the western approach was degraded for six hours on 2026-08-07; the affected period is excluded from the analogue set.",
+        "Two of the 1240 analogue days lack upper-air soundings and use reanalysis instead."
+      ],
+      "criticalMissing": []
+    },
+    "freshness": {
+      "dataAsOf": "2026-08-09T00:00:00Z",
+      "freshnessWindow": "PT12H"
+    },
+    "outliers": {
+      "assessed": true,
+      "detected": true,
+      "handling": "Three analogue days carried precipitation totals above the 99.5th percentile, all associated with convective events under a comparable synoptic pattern. They were retained: the convective mechanism is present in the current analysis, so these are evidence about the tail rather than contamination. Retaining them widened the interval by roughly 0.03."
+    }
+  },
+  "regime": {
+    "assessed": true,
+    "changeDetected": false,
+    "description": "The classifier was refitted in March 2026 on data through 2025. No station relocation, instrumentation change, or reporting-threshold change has occurred at EGLL since. Synoptic regime is within the range represented in the training period."
+  },
+  "ensemble": {
+    "members": [
+      {
+        "name": "analogue-knn",
+        "version": "4.2.0",
+        "probability": 0.6,
+        "weight": 0.4
+      },
+      {
+        "name": "gradient-boosted-synoptic",
+        "version": "2.8.1",
+        "probability": 0.64,
+        "weight": 0.4
+      },
+      {
+        "name": "persistence-baseline",
+        "version": "1.0.0",
+        "probability": 0.63,
+        "weight": 0.2
+      }
+    ],
+    "aggregation": {
+      "method": "weighted-mean",
+      "note": "Weights fixed in the March 2026 refit from out-of-sample log score, before any of these members saw the current case."
+    },
+    "disagreement": {
+      "spread": 0.04,
+      "declared": false
+    }
+  },
+  "market": {
+    "impliedProbability": 0.58,
+    "source": "Aggregated weather-derivative quotes, three counterparties",
+    "asOf": "2026-08-09T05:45:00Z",
+    "raw": [
+      {
+        "outcome": "precipitation above 0.2 mm",
+        "price": 1.6869,
+        "format": "decimal"
+      },
+      {
+        "outcome": "precipitation at or below 0.2 mm",
+        "price": 2.3295,
+        "format": "decimal"
+      }
+    ],
+    "vig": {
+      "removed": true,
+      "method": "proportional",
+      "overround": 0.02208
+    }
+  },
+  "edge": {
+    "value": 0.04,
+    "basis": "probability-minus-market-implied"
+  },
+  "expectedValue": {
+    "value": 6.64,
+    "stake": 100,
+    "payout": 172,
+    "currency": "USD"
+  },
+  "confidence": {
+    "tier": "moderate",
+    "vocabularyRef": "policy"
+  },
+  "calibration": {
+    "measured": true,
+    "method": "Brier score with reliability decomposition, 10 probability bins",
+    "dataset": "All EGLL daily precipitation predictions from 2025-08-01 to 2026-07-31, n = 365, strictly out of sample for the March 2026 refit.",
+    "asOf": "2026-08-01",
+    "score": {
+      "metric": "brier",
+      "value": 0.178
+    }
+  },
+  "provenance": {
+    "generatedBy": "forecast-service@4.2.0",
+    "dataSources": [
+      {
+        "name": "Met Office surface observations, EGLL",
+        "retrievedAt": "2026-08-09T05:50:00Z",
+        "asOf": "2026-08-09T00:00:00Z"
+      },
+      {
+        "name": "ECMWF HRES 00Z analysis",
+        "retrievedAt": "2026-08-09T05:55:00Z",
+        "asOf": "2026-08-09T00:00:00Z"
+      },
+      {
+        "name": "Weather-derivative quote aggregate",
+        "retrievedAt": "2026-08-09T05:45:00Z",
+        "asOf": "2026-08-09T05:45:00Z"
+      }
+    ],
+    "historical": {
+      "isHistorical": false
+    }
+  }
+}

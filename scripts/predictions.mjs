@@ -287,15 +287,45 @@ function renderReport(report, { verbose = false, verdict = true } = {}) {
   return out;
 }
 
-function renderAssurance(e) {
-  const a = e.assurance;
-  const c = e.frameworkCoverage;
-  return [
-    `  Assurance:  ${a.automated} automated, ${a.manualReview} human-reviewed, ${a.notEvaluated} not evaluated`,
+/**
+ * Assurance totals over a run.
+ *
+ * Assurance is a PER-RECORD quantity: an abstention answers fewer rules than a prediction, and a
+ * record at record schema 1.0.0 leaves `falsifiability.declared` not-evaluated where a 1.1.0 record
+ * answers it. So a directory run has no single record whose assurance describes it, and the earlier
+ * version of this function took the first record's figures and printed them as though it did — which
+ * could contradict the per-record results printed directly above, in exactly the heterogeneous
+ * directory where a reader most needs them.
+ *
+ * These are summed rule outcomes across the run, labelled as such. Framework coverage is not summed:
+ * it is a property of the catalog and the evaluator, identical for every record.
+ */
+function sumAssurance(envelopes) {
+  const total = { automated: 0, manualReview: 0, notEvaluated: 0 };
+  for (const e of envelopes) {
+    for (const key of Object.keys(total)) total[key] += e.assurance?.[key] ?? 0;
+  }
+  return total;
+}
+
+function renderAssurance(envelopes) {
+  const list = Array.isArray(envelopes) ? envelopes : [envelopes];
+  const a = sumAssurance(list);
+  const c = list[0].frameworkCoverage;
+  const scope = list.length === 1 ? "" : ` (rule outcomes across ${list.length} records)`;
+  const out = [
+    `  Assurance:  ${a.automated} automated, ${a.manualReview} human-reviewed, ${a.notEvaluated} not evaluated${scope}`,
     `  Coverage:   ${c.evaluatedRules}/${c.cataloguedRules} rules have a detector; ${c.fullyMachineRepresentedStandards}/${c.standards} standards fully machine-represented`,
-    "  Coverage is framework maturity, reported beside the verdict and never combined with it.",
-    "  A verdict speaks only about the rules that were evaluated.",
   ];
+  // Say so when the run is mixed, rather than leaving a reader to divide by the record count and
+  // assume the records are alike. They routinely are not.
+  const profiles = new Set(list.map((e) => `${e.assurance?.automated}/${e.assurance?.manualReview}/${e.assurance?.notEvaluated}`));
+  if (profiles.size > 1) {
+    out.push(`  Records differ in what could be evaluated (${profiles.size} distinct profiles); see each record above.`);
+  }
+  out.push("  Coverage is framework maturity, reported beside the verdict and never combined with it.");
+  out.push("  A verdict speaks only about the rules that were evaluated.");
+  return out;
 }
 
 async function main() {
@@ -409,10 +439,10 @@ async function main() {
       out.push("  This is a survey, not a verdict. Run `check` for the authoritative result.");
     } else {
       out.push("  " + Object.entries(aggregate).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${k}`).join(", "));
-      const first = reports.find((r) => r.envelope)?.envelope;
-      if (first) {
+      const envelopes = reports.map((r) => r.envelope).filter(Boolean);
+      if (envelopes.length > 0) {
         out.push("");
-        out.push(...renderAssurance(first));
+        out.push(...renderAssurance(envelopes));
       }
       const worst = reports.map((r) => r.envelope?.status).filter(Boolean);
       if (worst.includes(STATUS.BLOCKED_BY_INVARIANT)) {
