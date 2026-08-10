@@ -5,117 +5,144 @@
     "artifacts/prompt/standards-system-requirements.md"
   ],
   "reviewedOn": "2026-08-09",
-  "expectedCount": 18,
+  "expectedCount": 19,
   "expectedProhibitions": 19,
   "standards": [
     {
       "number": 1,
       "title": "probability definition",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/01-probability-definition.md"
     },
     {
       "number": 2,
       "title": "uncertainty",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/02-uncertainty.md"
     },
     {
       "number": 3,
       "title": "calibration",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/03-calibration.md"
     },
     {
       "number": 4,
       "title": "reference/baseline probability",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/04-baseline-probability.md"
     },
     {
       "number": 5,
       "title": "data freshness",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/05-data-freshness.md"
     },
     {
       "number": 6,
       "title": "missing information",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/06-missing-information.md"
     },
     {
       "number": 7,
       "title": "sample-size sufficiency",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/07-sample-size-sufficiency.md"
     },
     {
       "number": 8,
       "title": "outliers",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/08-outliers.md"
     },
     {
       "number": 9,
       "title": "regime change",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/09-regime-change.md"
     },
     {
       "number": 10,
       "title": "model disagreement",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/10-model-disagreement.md"
     },
     {
       "number": 11,
       "title": "ensemble behavior",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/11-ensemble-behavior.md"
     },
     {
       "number": 12,
       "title": "false precision",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/12-false-precision.md"
     },
     {
       "number": 13,
       "title": "prediction expiration",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/13-prediction-expiration.md"
     },
     {
       "number": 14,
       "title": "edge calculation",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/14-edge-calculation.md"
     },
     {
       "number": 15,
       "title": "vig removal when relevant",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/15-vig-removal.md"
     },
     {
       "number": 16,
       "title": "confidence definitions",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/16-confidence-definitions.md"
     },
     {
       "number": 17,
       "title": "abstention",
+      "origin": "source",
       "source": "artifacts/prompt/original-prompt.md",
       "implementedBy": "standards/17-abstention.md"
     },
     {
       "number": 18,
       "title": "standards integrity",
+      "origin": "source",
       "source": "artifacts/prompt/standards-system-requirements.md",
       "$comment": "Not a bullet in the domain brief's Required standards list. It is the global invariant the standards-system spec requires under its 'Standards integrity invariant' heading, admitted to the series because that spec also requires must-never rules to be first-class standards rather than buried in documentation. Extraction locates it by that heading, not by the bullet scan.",
       "implementedBy": "standards/18-standards-integrity.md"
+    },
+    {
+      "number": 19,
+      "title": "outcome falsifiability",
+      "origin": "evidence",
+      "source": null,
+      "$comment": "Not stated by either source specification. Derived from the adoption programme: Adoptions #2 and #3 independently produced records that satisfied every rule in the pack while naming, as their resolution source, a value their own run had already computed. Admitted to the series under ADR 0009, which requires an evidence-derived standard to name the committed artifact that disposed of it. It is excluded from the positional comparison against the sources for the obvious reason that no source contains it.",
+      "derivedFrom": "artifacts/release-review/v1.1-evidence-review.md",
+      "implementedBy": "standards/19-outcome-falsifiability.md"
     }
   ],
   "prohibitions": [

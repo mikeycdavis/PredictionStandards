@@ -21,6 +21,15 @@
  * located by its heading rather than by the bullet scan, and the inventory records that difference
  * so the exception is visible rather than hidden inside a regex.
  *
+ * WHAT IS NOT EXTRACTED. From 1.1.0 a standard may be derived from adoption evidence instead of from
+ * a specification (ADR 0009), and Standard 19 is the first. There is nothing in either source to
+ * extract it from, so it is excluded from the positional comparison and checked differently: it must
+ * declare `origin: "evidence"` and name an existing `derivedFrom` artifact, and it must sit after
+ * every source-derived standard so the comparison stays positional. The distinction is written by
+ * hand into the reviewed inventory. A standard cannot become evidence-derived by accident, and
+ * flipping one from `source` to `evidence` drops it out of the extraction comparison in a way the
+ * diff makes obvious.
+ *
  * A NOTE ON THE PROHIBITION LIST. The must-never bullets are written as continuations of the word
  * "Never:", so each bullet is a bare verb phrase. They are compared verbatim, lowercase and all —
  * a prohibition tidied into a sentence is a prohibition reworded, and Standard 18 forbids that.
@@ -33,6 +42,7 @@
  */
 
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -91,7 +101,41 @@ if (requiredBullets === null) {
   note(`${systemRel}: no blockquote under '## Standards integrity invariant'`);
 } else {
   const extracted = [...requiredBullets, "standards integrity"];
-  const expected = inventory.standards.map((s) => s.title);
+
+  // A standard is source-derived or evidence-derived (ADR 0009). Only the source-derived ones can be
+  // compared against an extraction, because the evidence-derived ones are deliberately absent from
+  // both specs. The comparison below is therefore against the source-derived entries only — and it
+  // still catches a miscounting parser, because a parser produces exactly the entries it compares to.
+  const sourceDerived = inventory.standards.filter((s) => s.origin === "source");
+  const expected = sourceDerived.map((s) => s.title);
+
+  for (const s of inventory.standards) {
+    if (s.origin !== "source" && s.origin !== "evidence") {
+      note(`standard ${s.number}: origin must be 'source' or 'evidence', found ${JSON.stringify(s.origin ?? null)}`);
+    }
+  }
+  // The source-derived entries must be a contiguous prefix. Without this, an evidence-derived entry
+  // could be inserted mid-series and shift the positional comparison by one, which is the silent
+  // renumbering this whole file exists to prevent.
+  const firstEvidence = inventory.standards.findIndex((s) => s.origin === "evidence");
+  if (firstEvidence !== -1) {
+    for (const s of inventory.standards.slice(firstEvidence)) {
+      if (s.origin === "source") {
+        note(
+          `standard ${s.number}: source-derived standards must precede every evidence-derived one, so the comparison against the sources stays positional`,
+        );
+      }
+    }
+  }
+  // An evidence-derived standard has to name the committed artifact that disposed of it, and that
+  // artifact has to exist. "We learned this from adoption" is a claim like any other.
+  for (const s of inventory.standards.filter((x) => x.origin === "evidence")) {
+    if (typeof s.derivedFrom !== "string" || s.derivedFrom.trim() === "") {
+      note(`standard ${s.number}: evidence-derived standards must record derivedFrom`);
+    } else if (!existsSync(path.join(ROOT, s.derivedFrom))) {
+      note(`standard ${s.number}: derivedFrom points at ${s.derivedFrom}, which does not exist`);
+    }
+  }
 
   if (inventory.standards.length !== inventory.expectedCount) {
     note(
@@ -99,7 +143,9 @@ if (requiredBullets === null) {
     );
   }
   if (extracted.length !== expected.length) {
-    note(`standards: extracted ${extracted.length} from the sources, inventory records ${expected.length}`);
+    note(
+      `standards: extracted ${extracted.length} from the sources, inventory records ${expected.length} source-derived (of ${inventory.standards.length} total)`,
+    );
   }
   for (let i = 0; i < Math.max(extracted.length, expected.length); i++) {
     if (extracted[i] !== expected[i]) {
@@ -159,7 +205,7 @@ if (JSON_OUT) {
 const out = [
   `Sources:      ${inventory.sources.join(", ")}`,
   `Reviewed on:  ${inventory.reviewedOn}`,
-  `Standards:    ${inventory.standards.length}`,
+  `Standards:    ${inventory.standards.length} (${inventory.standards.filter((s) => s.origin === "source").length} from the sources, ${inventory.standards.filter((s) => s.origin === "evidence").length} from adoption evidence)`,
   `Prohibitions: ${inventory.prohibitions.length}`,
   "",
 ];

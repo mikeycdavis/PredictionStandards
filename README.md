@@ -37,15 +37,21 @@ with the evidence claimed to support it. Records are JSON, validated against
 
 ## The standards
 
-50 rules across 18 standards. **46 of the 50 rules have a detector**; the remaining four are
+52 rules across 19 standards. **47 of the 52 rules have a detector**; the remaining five are
 human-review rules that no structural check can establish, and they are reported `not-evaluated`
-until a human attests to them. 16 of 18 standards are fully machine-represented.
+until a human attests to them. 16 of 19 standards are fully machine-represented.
 
-That last figure is a designed boundary rather than a backlog item. Three of the four unevaluated
+That last figure is a designed boundary rather than a backlog item. Three of the five unevaluated
 rules govern reasoning about predictions whose outcomes are known, and the record schema carries no
 outcome by design — so a detector for them would be checking something other than the rule. A
 truthful `not-evaluated` is worth more than fabricated assurance; see
 [CHANGELOG.md](CHANGELOG.md#coverage-at-release--and-why-4650-is-not-a-defect).
+
+**Coverage went down in 1.1.0, and that is the release working.** 1.0.0 evaluated 46 of 50 rules;
+1.1.0 evaluates 47 of 52. Standard 19 added a property three adoptions proved real and one adoption
+proved unautomatable, so one of its two rules is `manual-review` and reports `not-evaluated` until
+attested. A pack that only ever added rules it could check would be selecting its standards by what
+is easy to detect.
 
 | # | Standard | Document | Rules | Prohibitions |
 |---|---|---|---|---|
@@ -67,9 +73,16 @@ truthful `not-evaluated` is worth more than fabricated assurance; see
 | 16 | Confidence Definitions | [standards/16-confidence-definitions.md](standards/16-confidence-definitions.md) | 4 | 2 |
 | 17 | Abstention | [standards/17-abstention.md](standards/17-abstention.md) | 3 | 1 |
 | 18 | Standards Integrity | [standards/18-standards-integrity.md](standards/18-standards-integrity.md) | 1 | 1 |
+| 19 | Outcome Falsifiability | [standards/19-outcome-falsifiability.md](standards/19-outcome-falsifiability.md) | 2 | — |
 
 Standards 1–17 come from the domain brief's `Required standards` list, in its order. Standard 18
 comes from the standards-system specification's integrity invariant.
+
+Standard 19 comes from neither. It is derived from the adoption programme, which produced records
+that satisfied every rule above while being incapable of being wrong. The inventory records the
+difference explicitly — `origin: "source"` against `origin: "evidence"` — so a requirement learned
+from adoption is never presented as one a specification stated
+([ADR 0009](artifacts/adr/0009-evidence-derived-standards.md)).
 
 ## Prohibitions
 

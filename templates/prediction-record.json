@@ -1,10 +1,14 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "id": "replace-me",
   "subject": {
     "event": "What is being predicted, in plain language",
     "outcomeDefinition": "The precise condition that counts as the event occurring. Write it so two people holding opposite views could still agree, after the fact, which of them was right.",
-    "resolutionSource": "Who or what settles the outcome"
+    "resolutionSource": "Who or what settles the outcome",
+    "falsifiability": {
+      "undeterminedAtGeneration": true,
+      "basis": "State what still has to happen before the resolution source can answer. If nothing does, this is not a prediction."
+    }
   },
   "generatedAt": "2026-01-01T00:00:00Z",
   "expiresAt": "2026-01-02T00:00:00Z",

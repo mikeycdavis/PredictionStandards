@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "did-analysis-8841-authenticity-legacy",
+  "subject": {
+    "event": "Authenticity of https://example.com/article-8841",
+    "outcomeDefinition": "The page's authenticity, expressed as the overall score on the 0-100 scale converted to a proportion.",
+    "resolutionSource": "DeadInternetDetector Analysis.overallScore for this analysis"
+  },
+  "generatedAt": "2026-06-20T10:00:00Z",
+  "expiresAt": "2026-07-20T10:00:00Z",
+  "methodology": {
+    "name": "did-analyzer",
+    "version": "2.4.0",
+    "changedFromPrevious": false
+  },
+  "output": {
+    "type": "prediction",
+    "probability": 0.72,
+    "probabilityStated": "0.72",
+    "interval": {
+      "lower": 0.65,
+      "upper": 0.79,
+      "level": 0.9,
+      "method": "spread across the five category subscores"
+    }
+  },
+  "baseline": {
+    "probability": 0.54,
+    "source": "Mean overall score across all analyses of this domain",
+    "basis": "Mean Analysis.overallScore over 41 prior analyses of example.com, scaled to a proportion."
+  },
+  "data": {
+    "sampleSize": {
+      "n": 41,
+      "unit": "prior analyses of this domain",
+      "basis": "All completed analyses of example.com in the retention window."
+    },
+    "completeness": {
+      "knownGaps": [
+        "Two prior analyses used the degraded static-fetch path."
+      ],
+      "criticalMissing": []
+    },
+    "freshness": {
+      "dataAsOf": "2026-06-20T09:58:00Z",
+      "freshnessWindow": "P30D"
+    },
+    "outliers": {
+      "assessed": true,
+      "detected": false
+    }
+  },
+  "regime": {
+    "assessed": true,
+    "changeDetected": false
+  },
+  "market": {
+    "declaredAbsent": true,
+    "reason": "Nothing prices the authenticity of a webpage. No market or external reference expectation exists."
+  },
+  "confidence": {
+    "tier": "high",
+    "vocabularyRef": "policy"
+  },
+  "calibration": {
+    "measured": false
+  },
+  "provenance": {
+    "generatedBy": "did-analyzer 2.4.0",
+    "dataSources": [
+      {
+        "name": "Fetched page HTML",
+        "retrievedAt": "2026-06-20T09:58:00Z",
+        "asOf": "2026-06-20T09:58:00Z"
+      }
+    ],
+    "historical": {
+      "isHistorical": false
+    }
+  }
+}

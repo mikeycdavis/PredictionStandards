@@ -16,13 +16,13 @@ flowchart TB
     subgraph sources["Sources — committed, never regenerated"]
         brief["artifacts/prompt/<br>original-prompt.md<br><i>standards 1-17</i>"]
         sysreq["artifacts/prompt/<br>standards-system-requirements.md<br><i>standard 18</i>"]
-        inv["standards-source-inventory.json<br><i>18 standards, 19 prohibitions</i>"]
+        inv["standards-source-inventory.json<br><i>19 standards, 19 prohibitions</i>"]
         base["integrity-baseline.json<br><i>protection per rule</i>"]
     end
 
     subgraph definition["Definition — what the rules are"]
         docs["standards/01..18<br><i>normative documents</i>"]
-        cat["rules/*.json<br><i>50 rules, 19 forbidden, 9 non-exemptible</i>"]
+        cat["rules/*.json<br><i>52 rules, 19 forbidden, 9 non-exemptible</i>"]
         recschema["schemas/<br>prediction-record.schema.json"]
         polschema["schemas/<br>project-policy.schema.json"]
     end
@@ -88,7 +88,7 @@ build would be to run it.
 source said verbatim, what this pack added beyond it, and — in every document's Implementation
 section — what is *not* checked and why.
 
-`rules/*.json` is the machine-readable catalog: 50 rules, each with an identity, a level, a severity,
+`rules/*.json` is the machine-readable catalog: 52 rules, each with an identity, a level, a severity,
 a validation type, an assurance level, and a remediation. Nineteen are `forbidden` and carry a
 prohibition; nine of those are `nonExemptible`.
 

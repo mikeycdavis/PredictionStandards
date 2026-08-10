@@ -54,10 +54,21 @@ test("each standard document declares the number it is filed under", async () =>
   }
 });
 
-test("each standard document cites the source it was written from", async () => {
+test("each standard document cites where it came from", async () => {
+  // A source-derived standard cites its specification. An evidence-derived one cites the committed
+  // artifact that disposed of the evidence (ADR 0009) — the point of the origin field is that
+  // "we learned this from adoption" is a citable claim rather than an exemption from citing.
   for (const standard of inventory.standards) {
     const text = await read(standard.implementedBy);
-    assert.ok(text.includes(standard.source), `${standard.implementedBy} does not cite ${standard.source}`);
+    if (standard.origin === "evidence") {
+      assert.equal(standard.source, null, `${standard.implementedBy} is evidence-derived but names a source`);
+      assert.ok(
+        text.includes(standard.derivedFrom),
+        `${standard.implementedBy} does not cite ${standard.derivedFrom}`,
+      );
+    } else {
+      assert.ok(text.includes(standard.source), `${standard.implementedBy} does not cite ${standard.source}`);
+    }
   }
 });
 

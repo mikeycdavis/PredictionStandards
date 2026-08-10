@@ -120,7 +120,7 @@ how it can itself be protected and tested.
 
 Three pieces, described fully in [Standard 18](../../standards/18-standards-integrity.md):
 
-1. **`nonExemptible: true`** on 9 of the 50 rules. An exception against one is rejected rather than
+1. **`nonExemptible: true`** on 9 of the 52 rules. An exception against one is rejected rather than
    honoured; a policy override of its level is rejected; a not-applicable declaration against it is
    rejected.
 2. **The integrity ratchet** (`scripts/integrity.mjs` + `artifacts/integrity-baseline.json`). Every

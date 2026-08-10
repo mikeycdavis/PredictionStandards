@@ -18,6 +18,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const catalog = await loadCatalog();
 const inventory = JSON.parse(await readFile(path.join(ROOT, "artifacts/standards-source-inventory.json"), "utf8"));
 const baseline = JSON.parse(await readFile(path.join(ROOT, "artifacts/integrity-baseline.json"), "utf8"));
+const VERSION = (await readFile(path.join(ROOT, "VERSION"), "utf8")).trim();
 
 const PROTECTED = ["level", "nonExemptible", "severity"];
 
@@ -201,8 +202,10 @@ test("the unmutated catalog produces no drift", () => {
 });
 
 test("the baseline is dated and names the standards version it was reviewed against", () => {
+  // Compared against VERSION rather than a literal: a baseline reviewed against a superseded
+  // standards version is a baseline nobody has looked at since the rules changed.
   assert.match(baseline.reviewedOn, /^\d{4}-\d{2}-\d{2}$/);
-  assert.equal(baseline.standardVersion, "1.0.0");
+  assert.equal(baseline.standardVersion, VERSION);
 });
 
 // --- loader strictness -------------------------------------------------------------------------

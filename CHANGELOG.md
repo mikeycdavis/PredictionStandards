@@ -20,7 +20,49 @@ Version 1.1.0 in progress. Every change below traces to a disposition in
 [`artifacts/release-review/v1.1-evidence-review.md`](artifacts/release-review/v1.1-evidence-review.md),
 which is the decision record for this release. No change originates outside candidates C1–C10.
 
+### Added
+
+- **C2 — Standard 19, Outcome Falsifiability.** A prediction whose outcome was already determined
+  when it was generated cannot be wrong, and Adoptions #2 and #3 independently produced records that
+  satisfied every rule in the pack while being exactly that. Two rules in `rules/falsifiability.json`,
+  split along the assurance boundary the evidence established:
+  - `falsifiability.declared` — structural, `partial` assurance. The record declares
+    `subject.falsifiability.undeterminedAtGeneration` with a basis. Establishes that the declaration
+    was **made**, never that it is true.
+  - `falsifiability.resolution-not-self-determined` — `manual-review`, `none` assurance, attestable.
+    The property itself. No detector implements it and none is planned.
+
+  **The standard also forbids its own most tempting simplification.** R3 states that independence and
+  externality must not be required in place of falsifiability: Adoption #3 produced a legitimate
+  forecast resolved by the same system running the same method on the same data, and a rule demanding
+  an independent resolver would reject it. The five structures that establish this are permanent
+  regression fixtures in `test/fixtures/records/falsifiability/`, with `test/falsifiability.test.mjs`
+  asserting each disposition.
+
+- **Record schema 1.1.0**, adding the optional `subject.falsifiability` block. Additive: every 1.0.0
+  record remains valid and readable, and no verdict changes for an unmodified corpus. A 1.0.0 record
+  reports `not-evaluated` for `falsifiability.declared` — never `passed` and never `not-applicable`
+  ([ADR 0008](artifacts/adr/0008-record-schema-evolution-and-the-legacy-disposition.md)).
+
+- **A per-record `not-evaluated` disposition** in the verdict engine, alongside the per-record
+  `not-applicable` disposition of ADR 0005. *Not applicable* says the rule has no subject here.
+  *Not evaluated* says it has one and this run could not reach it. Collapsing them would let a
+  compatibility gap be credited as support for a property nothing examined.
+
+- **Evidence-derived standards.** The inventory records `origin: "source"` or `origin: "evidence"`
+  per standard, and an evidence-derived standard must name an existing `derivedFrom` artifact.
+  Standard 19 is the first, and the only one. `scripts/inventory.mjs` still compares the 18
+  source-derived standards positionally and verbatim against the specifications
+  ([ADR 0009](artifacts/adr/0009-evidence-derived-standards.md)).
+
 ### Changed
+
+- **Framework coverage went down, deliberately.** 1.0.0 evaluated 46 of 50 rules; 1.1.0 evaluates
+  **47 of 52**. Standard 19 added a property three adoptions proved real and one adoption proved
+  unautomatable, so one of its rules reports `not-evaluated` until attested. This is not a
+  regression. A pack that only ever adopted rules it could check would be choosing its standards by
+  what is easy to detect, and the 46/50 principle — a truthful `not-evaluated` beats fabricated
+  assurance — cuts this way as readily as the other.
 
 - **C1 — the ensemble not-applicable reason no longer asserts what produced the prediction.** It read
   `"This record names no ensemble; a single method produced the prediction."` The second clause was

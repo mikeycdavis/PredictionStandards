@@ -54,11 +54,27 @@ const RESULT = { passed: "passed", failed: "failed", warning: "warning", skipped
  *                  remove a rule from consideration; it can never turn a failure into a pass, since
  *                  it is consulted before any finding is read and a rule with findings is never
  *                  inapplicable.
+ * @param recordNotEvaluated
+ *                  Map<ruleId, reason> for rules this record's own format prevents the run from
+ *                  reaching — a record declaring an older schema version cannot carry a field a
+ *                  later rule reads. Reported as not-evaluated, never as passed or not-applicable:
+ *                  the rule has a subject here, the evaluation simply could not get to it (ADR
+ *                  0008). Like the two applicability inputs it cannot suppress a finding.
  */
-export function evaluate({ catalog, policy, findings, evaluated, today, digests, recordApplicability }) {
+export function evaluate({
+  catalog,
+  policy,
+  findings,
+  evaluated,
+  today,
+  digests,
+  recordApplicability,
+  recordNotEvaluated,
+}) {
   const declaredRules = policy?.rules ?? {};
   const applicability = policy?.applicability ?? {};
   const recordNotApplicable = recordApplicability ?? new Map();
+  const recordUnreachable = recordNotEvaluated ?? new Map();
   const exceptions = Array.isArray(policy?.exceptions) ? policy.exceptions : [];
   const attestations = policy?.attestations ?? {};
   const examined = new Set(evaluated ?? []);
@@ -150,6 +166,17 @@ export function evaluate({ catalog, policy, findings, evaluated, today, digests,
     const recordReason = recordNotApplicable.get(rule.id);
     if (recordReason && !hasFindings) {
       results.push(base(rule, level, RESULT.skipped, "not-applicable", recordReason));
+      continue;
+    }
+
+    // The record's format puts this rule out of reach of this run — an older record schema version
+    // has no field for a later rule to read. Not the same claim as not-applicable, and emphatically
+    // not a pass: `skipped != passed` is what keeps a compatibility gap from being credited as
+    // support for a property nothing examined (ADR 0008). Guarded by hasFindings for the same
+    // reason as above, so it can never suppress evidence.
+    const unreachableReason = recordUnreachable.get(rule.id);
+    if (unreachableReason && !hasFindings) {
+      results.push(base(rule, level, RESULT.skipped, "not-evaluated", unreachableReason));
       continue;
     }
 

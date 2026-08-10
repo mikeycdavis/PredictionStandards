@@ -46,6 +46,7 @@ import {
   inspectSeries,
   loadRecords,
   recordApplicability,
+  recordNotEvaluated,
   resolveParameters,
 } from "./records.mjs";
 
@@ -56,7 +57,7 @@ const EXIT_INVOCATION = 2;
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const RECORD_SCHEMA = path.join(ROOT, "schemas/prediction-record.schema.json");
 const POLICY_SCHEMA = path.join(ROOT, "schemas/project-policy.schema.json");
-const TOTAL_STANDARDS = 18;
+const TOTAL_STANDARDS = 19;
 
 function usage() {
   return `Usage: predictions <init|audit|check|explain|status> [record.json|directory] [flags]
@@ -179,6 +180,7 @@ async function evaluateAll({ catalog, schema, policy, target, asOf, includeSerie
       evaluated: EVALUATED_RULES,
       today: asOf.slice(0, 10),
       recordApplicability: recordApplicability(entry.record),
+      recordNotEvaluated: recordNotEvaluated(entry.record),
     });
 
     reports.push({

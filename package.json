@@ -1,9 +1,11 @@
 {
   "name": "prediction-standards",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Numbered prediction standards, and the command that checks whether an individual prediction is sufficiently supported.",
   "type": "module",
-  "bin": { "predictions": "scripts/predictions.mjs" },
+  "bin": {
+    "predictions": "scripts/predictions.mjs"
+  },
   "scripts": {
     "test": "node --test \"test/*.test.mjs\"",
     "audit": "node scripts/predictions.mjs audit examples/records",
@@ -15,7 +17,9 @@
     "policy": "node scripts/policy.mjs",
     "diagrams": "node scripts/diagrams.mjs"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "license": "UNLICENSED",
   "private": true
 }

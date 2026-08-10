@@ -167,7 +167,7 @@ rule metadata gets the same caveat you just read.
 
 ## 10. Framework coverage
 
-Every report carries `frameworkCoverage` **beside** the verdict and never inside it: 46 of 50 rules
-have a detector, 16 of 18 standards are fully machine-represented. Combining the two numbers would
+Every report carries `frameworkCoverage` **beside** the verdict and never inside it: 47 of 52 rules
+have a detector, 16 of 19 standards are fully machine-represented. Combining the two numbers would
 let a tooling improvement look like a support improvement. `SUPPORTED` means everything checked
 passed — not that everything conceivable was checked.

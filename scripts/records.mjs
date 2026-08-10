@@ -94,6 +94,49 @@ export function rawImplied(entry) {
 }
 
 /**
+ * The record schema version that introduced `subject.falsifiability`. A named constant with one
+ * caller, so the next version-gated field does not reintroduce this parsing (ADR 0008).
+ */
+export const FALSIFIABILITY_SINCE = "1.1.0";
+
+/**
+ * Compare two record schema versions. Returns true when `declared` is at least `floor`.
+ * An unparseable or missing version is treated as below every floor: a record that will not say
+ * what format it is in does not get the benefit of the doubt about which rules reach it.
+ */
+export function atLeastRecordSchema(declared, floor) {
+  const parse = (v) => (typeof v === "string" ? v.split(".").map((p) => Number.parseInt(p, 10)) : null);
+  const a = parse(declared);
+  const b = parse(floor);
+  if (!a || !b || a.length !== 3 || a.some(Number.isNaN)) return false;
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] > b[i];
+  }
+  return true;
+}
+
+/**
+ * Rules a record's own format prevents this evaluation from reaching, and the reason.
+ *
+ * Distinct from `recordApplicability` and deliberately so. *Not applicable* says the rule has no
+ * subject in this record. *Not evaluated* says the rule has a subject and this run could not reach
+ * it — here, because the record declares a schema version predating the field the rule reads.
+ * Collapsing the two would let a compatibility gap wear the costume of an inapplicable rule, which
+ * is a disposition asserting more than was observed (ADR 0008).
+ */
+export function recordNotEvaluated(record) {
+  const notEvaluated = new Map();
+  if (record?.output?.type !== "prediction") return notEvaluated;
+  if (!atLeastRecordSchema(record?.schemaVersion, FALSIFIABILITY_SINCE)) {
+    notEvaluated.set(
+      "falsifiability.declared",
+      `This record declares schema version ${record?.schemaVersion ?? "(none)"}, which predates subject.falsifiability (added in ${FALSIFIABILITY_SINCE}). Whether its outcome was undetermined at generation is unknown to this evaluation.`,
+    );
+  }
+  return notEvaluated;
+}
+
+/**
  * Rules whose subject can be absent from an individual record, and the reason to report when it is.
  * Consulted by the evaluator to produce `not-applicable` dispositions that quote the record's own
  * declaration rather than a generic phrase (ADR 0005).
@@ -137,6 +180,8 @@ export function recordApplicability(record) {
         "data.missing-critical-blocks",
         "data.sample-size-sufficient",
         "abstention.no-manufactured-prediction",
+        "falsifiability.declared",
+        "falsifiability.resolution-not-self-determined",
       ],
       "This record is an abstention; the rule's subject is a prediction output.",
     );
@@ -238,6 +283,11 @@ export const EVALUATED_RULES = [
   "abstention.first-class-output",
   "abstention.valid-shape",
   "abstention.no-manufactured-prediction",
+  "falsifiability.declared",
+  // falsifiability.resolution-not-self-determined is deliberately absent. It is manual-review, so
+  // it stays not-evaluated until an attestation records that a human looked, and it lowers this
+  // pack's framework coverage. That is the honest number for a property adoption proved real and
+  // proved unautomatable (Standard 19, ADR 0009).
 ];
 
 /**
@@ -705,6 +755,32 @@ export function inspect({ record, schema, parameters, asOf }) {
       if (value !== undefined) {
         report("abstention.valid-shape", `An abstention must not carry ${field}.`, { evidence: [field] });
       }
+    }
+  }
+
+  // D22 — the falsifiability declaration (Standard 19). Records at schema FALSIFIABILITY_SINCE and
+  // later must declare that the outcome was still open at generatedAt; earlier records cannot carry
+  // the field at all and are reported not-evaluated by `recordNotEvaluated` rather than being
+  // failed or passed here (ADR 0008).
+  //
+  // What this establishes is that the declaration was MADE. Whether it is TRUE is
+  // falsifiability.resolution-not-self-determined, which is manual-review and stays not-evaluated
+  // until a human attests it. Adoption #3 spent five records establishing that the distinction is
+  // real and the second half is not automatable; collapsing them here would undo that.
+  if (isPrediction && atLeastRecordSchema(record?.schemaVersion, FALSIFIABILITY_SINCE)) {
+    const declaration = record?.subject?.falsifiability;
+    if (declaration === undefined) {
+      report(
+        "falsifiability.declared",
+        `This record declares schema version ${record.schemaVersion} and states no subject.falsifiability. A prediction whose outcome was already determined when it was generated cannot be wrong, and nothing in the rest of the record distinguishes that case.`,
+        { evidence: ["subject"] },
+      );
+    } else if (declaration.undeterminedAtGeneration !== true) {
+      report(
+        "falsifiability.declared",
+        "This record declares that its outcome was already determined when it was generated. That artifact is a measurement or an index, not a prediction.",
+        { evidence: ["subject.falsifiability.undeterminedAtGeneration"] },
+      );
     }
   }
 

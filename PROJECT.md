@@ -11,7 +11,7 @@ Explicitly **not** a machine-learning standard: nothing here evaluates a model. 
 
 ## Standards
 
-Version 1.0.0. 18 standards, 50 rules, 19 prohibitions of which 9 are non-exemptible. Written from
+Version 1.1.0. 19 standards, 52 rules, 19 prohibitions of which 9 are non-exemptible. Written from
 two committed sources: the domain brief (`artifacts/prompt/original-prompt.md`, standards 1–17) and
 the standards-system requirements (`artifacts/prompt/standards-system-requirements.md`, standard 18).
 
@@ -93,13 +93,13 @@ dependency breaks the build by design.
 ## Current state
 
 Version 1.0.0, complete against both source specifications, and **the architecture is frozen as the
-v1.0 baseline.** 46 of 50 rules have a detector; 16 of 18 standards are fully machine-represented.
+v1.0 baseline.** 47 of 52 rules have a detector; 16 of 19 standards are fully machine-represented.
 The four unevaluated rules are the three outcome-bias and lookahead-evaluation rules — which concern
 reasoning about resolved predictions, where no artifact exists to inspect — and
 `integrity.no-manipulation`, which is partly automated. All four are reported `not-evaluated` until
 attested, never as passes.
 
-Coverage of 46/50 is a designed boundary, not unfinished work. Do not add detectors to reach 50/50;
+Coverage of 47/52 is a designed boundary, not unfinished work. Do not add detectors to reach 52/52;
 see [CHANGELOG.md](CHANGELOG.md). New rules should come from real adoption exposing a missing rule, a
 false positive, a false negative, or a badly calibrated threshold — not from speculative expansion.
 

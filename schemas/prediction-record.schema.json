@@ -107,7 +107,25 @@
           "type": "string",
           "minLength": 1
         },
-        "resolveBy": { "$ref": "#/$defs/timestamp" }
+        "resolveBy": { "$ref": "#/$defs/timestamp" },
+
+        "falsifiability": {
+          "description": "The producer's declaration that the outcome named above was still open when this record was generated. Introduced in record schema 1.1.0 and optional in the document shape, so a 1.0.0 record remains well-formed; `falsifiability.declared` requires it from 1.1.0 onward and reports not-evaluated below that (ADR 0008). A record whose resolution target was already computed cannot be wrong, and Adoptions #2 and #3 both produced one that satisfied every other rule in this pack.",
+          "type": "object",
+          "required": ["undeterminedAtGeneration", "basis"],
+          "additionalProperties": false,
+          "properties": {
+            "undeterminedAtGeneration": {
+              "description": "True when the resolution target was not determined by the act or state that produced this prediction. False is a legitimate thing to say and makes the artifact something other than a prediction, so it is recorded rather than forbidden — and it fails the rule instead of failing the schema.",
+              "type": "boolean"
+            },
+            "basis": {
+              "description": "Why the outcome was still open. What has to happen before the resolution source can answer, in enough detail that a reviewer can disagree.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
       }
     },
 

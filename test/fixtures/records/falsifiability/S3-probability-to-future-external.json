@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "1.1.0",
+  "id": "did-8841-deindex-forecast",
+  "subject": {
+    "event": "The domain example.com is removed from Google's search index within 90 days",
+    "outcomeDefinition": "A site: query for example.com on Google returns zero results on 2026-09-18, checked from three geographies.",
+    "resolutionSource": "Google Search, queried directly. Wholly external to DeadInternetDetector.",
+    "resolveBy": "2026-09-19T00:00:00Z",
+    "falsifiability": {
+      "undeterminedAtGeneration": true,
+      "basis": "The index status is checked after this record is written, and nothing in this analysis affects whether the page is indexed."
+    }
+  },
+  "generatedAt": "2026-06-20T10:00:00Z",
+  "expiresAt": "2026-07-20T10:00:00Z",
+  "methodology": {
+    "name": "did-spam-deindex-model",
+    "version": "0.9.0",
+    "changedFromPrevious": false
+  },
+  "output": {
+    "type": "prediction",
+    "probability": 0.31,
+    "probabilityStated": "0.31",
+    "interval": {
+      "lower": 0.18,
+      "upper": 0.47,
+      "level": 0.9,
+      "method": "Bootstrap over historical deindexed domains"
+    }
+  },
+  "baseline": {
+    "probability": 0.07,
+    "source": "Base rate of 90-day deindexing among analyzed domains",
+    "basis": "Proportion of 1,902 analyzed domains observed deindexed within 90 days of first analysis."
+  },
+  "data": {
+    "sampleSize": {
+      "n": 1902,
+      "unit": "analyzed domains with 90-day follow-up",
+      "basis": "Domains first analyzed 2025-01 to 2026-03 with an index check at day 90."
+    },
+    "completeness": {
+      "knownGaps": [
+        "Manual Google penalties are not observable; only the outcome is."
+      ],
+      "criticalMissing": []
+    },
+    "freshness": {
+      "dataAsOf": "2026-06-20T09:58:00Z",
+      "freshnessWindow": "P30D"
+    },
+    "outliers": {
+      "assessed": true,
+      "detected": false
+    }
+  },
+  "regime": {
+    "assessed": true,
+    "changeDetected": true,
+    "description": "Google shipped a spam-policy update in 2026-05 that changed deindexing rates.",
+    "accountedFor": "Sample restricted to post-update follow-ups where available (412 of 1902) and the interval widened to span the pre- and post-update base rates."
+  },
+  "market": {
+    "declaredAbsent": true,
+    "reason": "Nothing prices the deindexing of a specific domain."
+  },
+  "confidence": {
+    "tier": "low",
+    "vocabularyRef": "policy"
+  },
+  "calibration": {
+    "measured": false
+  },
+  "provenance": {
+    "generatedBy": "did-spam-deindex-model 0.9.0",
+    "dataSources": [
+      {
+        "name": "Historical analyses with index follow-up",
+        "retrievedAt": "2026-06-20T09:58:00Z",
+        "asOf": "2026-06-20T09:58:00Z"
+      }
+    ],
+    "historical": {
+      "isHistorical": false
+    }
+  }
+}

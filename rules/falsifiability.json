@@ -1,0 +1,48 @@
+{
+  "$comment": "Rule catalog — falsifiability. Standard 19, the one standard in this series derived from adoption evidence rather than from a source specification (ADR 0009). Both rules apply only to predictions: an abstention makes no claim that could have been false. Neither is `forbidden`-level, because every forbidden rule in this pack maps to a prohibition a source actually stated, and no source states this one. The two rules split a single property along the assurance boundary Adoption #3 discovered: whether the declaration was MADE is observable, whether it is TRUE is not.",
+  "rules": [
+    {
+      "id": "falsifiability.declared",
+      "title": "Every prediction declares that its outcome was still open when it was generated",
+      "standard": 19,
+      "category": "falsifiability",
+      "level": "required",
+      "severity": "error",
+      "validationType": "structural",
+      "assurance": "partial",
+      "$assuranceNote": "This establishes that the producer made the declaration and stated a basis for it — nothing more. The declaration is a claim, not an observation, and a producer willing to write a false one passes this rule. That is a deliberate boundary, not an oversight: Adoption #3 showed the property itself is not machine-checkable from the artifact, and the value of requiring the declaration is that it converts a silent omission into a stated falsehood. `falsifiability.resolution-not-self-determined` is where the truth of the claim is established, by a human.",
+      "nonExemptible": false,
+      "appliesTo": "prediction",
+      "introducedIn": "1.1.0",
+      "description": "subject.falsifiability declares undeterminedAtGeneration true, with a basis. Required from record schema 1.1.0; a record declaring an earlier version reports not-evaluated rather than passing.",
+      "rationale": "Adoption #2 and Adoption #3 independently produced records that satisfied every rule in this pack while naming, as their resolution source, a value their own run had already computed. Those records reached SUPPORTED at 100%. They were not wrong; they were incapable of being wrong, which is worse, because the pack's top verdict was reporting evidential support for a claim that no observation could ever contradict.",
+      "remediation": "State subject.falsifiability.undeterminedAtGeneration and the basis for it: what must still happen before the resolution source can answer. If the outcome was already determined when the record was generated, the artifact is a measurement or an index rather than a prediction, and the honest declaration is false.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    },
+    {
+      "id": "falsifiability.resolution-not-self-determined",
+      "title": "The resolution target was not determined by the act or state that produced the prediction",
+      "standard": 19,
+      "category": "falsifiability",
+      "level": "required",
+      "severity": "error",
+      "validationType": "manual-review",
+      "assurance": "none",
+      "$assuranceNote": "No automated check establishes this and none is claimed. The evaluator cannot tell a resolution source that will answer later from one that has already answered, because both are strings in a record the producer wrote. This rule reports not-evaluated until a human review is recorded as an attestation, and it is expected to lower this pack's framework coverage. That is the honest number: the pack learned about a property it cannot automate.",
+      "nonExemptible": false,
+      "appliesTo": "prediction",
+      "attestable": true,
+      "introducedIn": "1.1.0",
+      "description": "A reviewer confirms that the outcome named in subject.outcomeDefinition was undetermined at generatedAt — that some observation made afterwards could still have contradicted the prediction.",
+      "rationale": "The property is falsifiability at prediction time, and it is neither independence nor externality. Adoption #3 built five structures to find out: a prediction resolved by a blind human panel, one resolved by an external index, and one resolved by the same analyzer running the same methodology on the same pipeline are all legitimate, because none of their outcomes was settled when the prediction was made. Only the record that named its own completed output was circular. A rule demanding an independent or external resolver would reject two of the legitimate three.",
+      "remediation": "Review whether the resolution source can produce an answer that disagrees with this prediction. If it can, record an attestation. If it cannot — because the value it reports was already fixed when the record was generated — the record is not a prediction and no attestation makes it one.",
+      "aliases": [],
+      "deprecatedIn": null,
+      "supersededBy": null,
+      "removedIn": null
+    }
+  ]
+}
