@@ -170,7 +170,14 @@ export function recordApplicability(record) {
         "ensemble.disagreement-declared",
         "ensemble.no-cherry-picking",
       ],
-      "This record names no ensemble; a single method produced the prediction.",
+      // Adoption #1 (F2), #2 (G2), and #3 all found this reason asserting a second clause —
+      // "a single method produced the prediction" — which is inferred from a missing field and was
+      // stated as observed. In #2 it was flatly contradicted by the source, which combines five
+      // weighted subscores. The disposition was correct in all three; only the sentence was wrong.
+      // A not-applicable reason states what was observed about the record and nothing further:
+      // the absence of the block is observable, what produced the prediction instead is not.
+      // See artifacts/release-review/v1.1-evidence-review.md (R1 / candidate C1).
+      "This record states no ensemble.",
     );
   }
   return notApplicable;

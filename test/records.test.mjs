@@ -469,12 +469,47 @@ test("a declared market absence carries the record's own words as the reason", (
   assert.match(applicability.get("market.vig-removed"), /no liquid market exists/);
 });
 
-test("a single-model prediction has no ensemble rules to answer", () => {
+test("a prediction with no ensemble block has no ensemble rules to answer", () => {
   const record = clone(PREDICTION);
   delete record.ensemble;
   const applicability = recordApplicability(record);
   assert.ok(applicability.has("ensemble.disagreement-declared"));
-  assert.match(applicability.get("ensemble.disagreement-declared"), /single method/i);
+  assert.match(applicability.get("ensemble.disagreement-declared"), /states no ensemble/i);
+});
+
+test("a not-applicable reason reports the absence, never what produced the prediction instead", () => {
+  // The regression this locks down is R1, reproduced by all three adopters: the reason used to add
+  // "a single method produced the prediction", which is not observable from an absent block. The
+  // previous version of this test asserted the defect, which is how it survived three adoptions.
+  const record = clone(PREDICTION);
+  delete record.ensemble;
+  const applicability = recordApplicability(record);
+  for (const id of [
+    "ensemble.members-enumerated",
+    "ensemble.aggregation-stated",
+    "ensemble.disagreement-declared",
+    "ensemble.no-cherry-picking",
+  ]) {
+    const reason = applicability.get(id);
+    assert.ok(reason, `${id} should be not-applicable`);
+    assert.doesNotMatch(reason, /single method|one method|a single model/i, `${id}: ${reason}`);
+  }
+});
+
+test("no not-applicable reason claims a fact about how the prediction was produced", () => {
+  // The general form of R1. Every reason in the map must be a statement about the record's
+  // declarations — absence, output type, or the record's own quoted words — and never an inference
+  // about the producer's methodology.
+  const record = clone(PREDICTION);
+  delete record.ensemble;
+  delete record.edge;
+  delete record.expectedValue;
+  record.market = { declaredAbsent: true, reason: "no liquid market exists for this event" };
+  const reasons = [...recordApplicability(record).values()];
+  assert.ok(reasons.length > 0);
+  for (const reason of new Set(reasons)) {
+    assert.doesNotMatch(reason, /\bproduced the prediction\b/i, reason);
+  }
 });
 
 test("a methodology change across a series must be declared", () => {

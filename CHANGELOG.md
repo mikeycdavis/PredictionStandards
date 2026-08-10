@@ -16,6 +16,19 @@ A test enforces this: weakening a rule silently is the manipulation Standard 18 
 
 ## [Unreleased]
 
+Version 1.1.0 in progress. Every change below traces to a disposition in
+[`artifacts/release-review/v1.1-evidence-review.md`](artifacts/release-review/v1.1-evidence-review.md),
+which is the decision record for this release. No change originates outside candidates C1–C10.
+
+### Changed
+
+- **C1 — the ensemble not-applicable reason no longer asserts what produced the prediction.** It read
+  `"This record names no ensemble; a single method produced the prediction."` The second clause was
+  inferred from a missing field and stated as observed, and Adoptions #1, #2, and #3 all found it —
+  in #2 contradicted by a source that combines five weighted subscores. It now reads
+  `"This record states no ensemble."` Applicability, rule identity, thresholds, and verdicts are
+  unchanged: the disposition was correct in all three adopters, only the sentence was wrong.
+
 ## [1.0.0] — 2026-08-09
 
 Initial release. Standards version 1.0.0, report schema 1.0, record schema 1.0.0.
