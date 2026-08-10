@@ -57,6 +57,7 @@ const NUMERIC_PARAMETERS = {
   disagreementThreshold: "number",
   materialityThreshold: "number",
   tolerance: "number",
+  currencyTolerance: "number",
 };
 
 /**

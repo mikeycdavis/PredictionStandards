@@ -173,6 +173,17 @@ const MUTATIONS = [
     rule: "data.staleness-accounted",
     mutate: (r) => (r.data.freshness.dataAsOf = "2026-07-01T00:00:00Z"),
   },
+  {
+    // C5. The record dates its data recently while its own provenance says the sources are older —
+    // the freshness-window evasion from Adoption #1's adversarial record, caught by two fields of
+    // the artifact disagreeing rather than by trusting either one.
+    name: "a dataAsOf later than every source the record names",
+    base: "prediction",
+    rule: "data.staleness-accounted",
+    mutate: (r) => {
+      for (const source of r.provenance.dataSources) source.asOf = "2026-06-01T00:00:00Z";
+    },
+  },
 
   // --- Standard 6: missing information ---
   {
@@ -311,6 +322,14 @@ const MUTATIONS = [
     base: "prediction",
     rule: "market.vig-removed",
     mutate: (r) => (r.market.vig = { removed: false, method: "none-needed" }),
+  },
+  {
+    // C4. Adoption #1 (A2): the overround was recomputed to decide whether removal was required, and
+    // never compared with the number the record states, so a record could claim any margin.
+    name: "a stated overround the quoted prices do not imply",
+    base: "prediction",
+    rule: "market.vig-removed",
+    mutate: (r) => (r.market.vig.overround = 0.001),
   },
   {
     name: "an edge stated against a market the record does not carry",
@@ -595,6 +614,69 @@ test("evaluation is deterministic: the same inputs and asOf give the same findin
   const a = JSON.stringify(findingsFor(clone(PREDICTION)));
   const b = JSON.stringify(findingsFor(clone(PREDICTION)));
   assert.equal(a, b);
+});
+
+test("an expected value rounded to the cent reconciles; one wrong by a cent does not", () => {
+  // C3. Adoption #1 (A1): `tolerance` served probability space and currency space at once, so an
+  // expected value published at the minor unit — the correct thing for an adopter to do — failed
+  // permanently against an exact recompute. Both halves are asserted, because a fix that simply
+  // widened the tolerance until nothing failed would pass the first half alone.
+  const record = clone(PREDICTION);
+  const { probability } = record.output;
+  const { stake, payout } = record.expectedValue;
+  const exact = probability * (payout - stake) - (1 - probability) * stake;
+
+  record.expectedValue.value = Math.round(exact * 100) / 100;
+  assert.ok(
+    !inspect({ record, schema, parameters: PARAMETERS, asOf: AS_OF }).some((f) => f.rule === "ev.recomputable"),
+    "an expected value rounded to the cent should reconcile",
+  );
+
+  record.expectedValue.value = Math.round(exact * 100) / 100 + 0.01;
+  assert.ok(
+    inspect({ record, schema, parameters: PARAMETERS, asOf: AS_OF }).some((f) => f.rule === "ev.recomputable"),
+    "a whole cent of error should still be caught",
+  );
+});
+
+test("the currency tolerance does not loosen the probability-space checks", () => {
+  // The counterexample that ruled out the tempting fix. `edge.recomputable` at 1e-4 is what makes a
+  // fabricated edge detectable, and `edge.not-fabricated` is non-exemptible — raising the shared
+  // tolerance to accommodate money would have weakened the evidence for a rule no policy can waive.
+  const record = clone(PREDICTION);
+  record.edge.value = record.edge.value + 0.001;
+  const findings = inspect({ record, schema, parameters: PARAMETERS, asOf: AS_OF });
+  assert.ok(findings.some((f) => f.rule === "edge.recomputable"));
+  assert.ok(PARAMETERS.currencyTolerance > PARAMETERS.tolerance);
+});
+
+test("provenance reconciliation closes one evasion and does not claim to close more", () => {
+  // C5, and the scope bound the review made binding. The freshness window has an independent
+  // referent inside the record; an empty criticalMissing and an omitted ensemble do not, and this
+  // asserts that the detector is honest about which of the three it reaches.
+  const record = clone(PREDICTION);
+  record.data.completeness.criticalMissing = [];
+  delete record.ensemble;
+  const findings = inspect({ record, schema, parameters: PARAMETERS, asOf: AS_OF });
+  assert.ok(
+    !findings.some((f) => f.rule === "data.staleness-accounted"),
+    "an under-declared record with consistent timestamps is not reached by this check",
+  );
+});
+
+test("older reference data alongside current observation data is not a freshness contradiction", () => {
+  // The over-fire the Standard 19 fixtures caught. A record may legitimately score a page fetched
+  // this morning against a labelled corpus from April; the corpus being older than dataAsOf says
+  // nothing about the record's freshness. The contradiction is dating the data later than EVERY
+  // source, which is what the detector compares against.
+  const record = clone(PREDICTION);
+  record.provenance.dataSources.push({
+    name: "Historical calibration corpus",
+    retrievedAt: "2026-08-09T05:50:00Z",
+    asOf: "2026-01-01T00:00:00Z",
+  });
+  const findings = inspect({ record, schema, parameters: PARAMETERS, asOf: AS_OF });
+  assert.ok(!findings.some((f) => f.rule === "data.staleness-accounted"));
 });
 
 test("staleness is measured against asOf, not the wall clock", () => {

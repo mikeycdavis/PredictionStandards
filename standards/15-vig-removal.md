@@ -132,6 +132,11 @@ beyond doubt. The **proportional** method is recomputed in full and compared wit
 plausible, because both take parameters the record does not carry — implementing them properly would
 mean asking records to declare fitted parameters, which is a schema change this pack has not made.
 
+Since 1.1.0 a **stated** `market.vig.overround` is compared with the value the quoted prices imply.
+The computation was already being performed to decide whether removal was required; only the
+comparison was missing, so a record could publish any margin it liked beside prices that said
+otherwise.
+
 That limit is in both rules' assurance notes. It means a record claiming shin de-vigging is taken
 largely on trust, while one claiming proportional is verified.
 

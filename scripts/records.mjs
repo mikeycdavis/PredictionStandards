@@ -44,6 +44,14 @@ export const DEFAULT_PARAMETERS = {
   disagreementThreshold: 0.1,
   materialityThreshold: 0.01,
   tolerance: 0.0001,
+  // Currency is compared at the resolution of its minor unit, not at probability resolution.
+  // Adoption #1 found `tolerance` serving both: an expected value rounded to cents (6.99 against an
+  // exact 6.988) failed permanently, and rounding money to the cent is the correct thing for an
+  // adopter to do. Raising the shared tolerance to fix it would have loosened `edge.recomputable`,
+  // whose 1e-4 is what makes a fabricated edge detectable — weakening the evidence for a
+  // non-exemptible rule to fix a units bug (C3). Half a cent is the default; a currency with a
+  // different minor unit needs a policy override.
+  currencyTolerance: 0.005,
   defaultFreshnessWindow: "P7D",
   confidenceVocabulary: null,
 };
@@ -417,6 +425,46 @@ export function inspect({ record, schema, parameters, asOf }) {
     }
   }
 
+  // D6b — the declared freshness against the record's own provenance (C5).
+  //
+  // SCOPE, STATED BECAUSE IT IS EASY TO OVERSTATE. This closes ONE evasion, not the under-declaration
+  // boundary (B1). Adoption #1 built a record that reaches 100% SUPPORTED by setting its own generous
+  // freshness window, emptying criticalMissing, and omitting an ensemble — the producer setting the
+  // window that judges the producer. Only the first of those three leaves a contradiction inside the
+  // artifact: `data.freshness.dataAsOf` says the data describes one instant, and
+  // `provenance.dataSources[].asOf` says the sources describe an older one. An empty criticalMissing
+  // and an omitted ensemble have no independent referent in the record and are not reachable here or
+  // anywhere else in an evaluator that reads declarations.
+  //
+  // Reported against `data.staleness-accounted` rather than a new rule: the finding is that the data
+  // was stale and the staleness was not accounted for, which is exactly that prohibition. The
+  // evidence is stronger than D6's, not weaker — it rests on two fields of the record disagreeing
+  // rather than on the record's own account of its age — so the label stays OBSERVED.
+  // The comparison is against the NEWEST source, not the oldest, and the difference is the whole
+  // correctness of the check. A record legitimately draws on current observation data and older
+  // reference data at once — a page fetched this morning, scored against a labelled corpus from
+  // April — and the April corpus being older than dataAsOf says nothing about the record's
+  // freshness. What no legitimate record can do is date its data later than every source it names.
+  // The first form of this detector compared against the oldest source and failed one of the
+  // Standard 19 fixtures, which is why those five are permanent.
+  const sources = Array.isArray(record?.provenance?.dataSources) ? record.provenance.dataSources : [];
+  if (freshness?.dataAsOf && sources.length > 0 && !freshness.stalenessAccounted) {
+    const stamps = sources.map((s) => ({ name: s.name, at: ms(s.asOf) })).filter((s) => Number.isFinite(s.at));
+    const newest = stamps.sort((a, b) => b.at - a.at)[0];
+    const windowMs = durationToMs(freshness.freshnessWindow ?? parameters.defaultFreshnessWindow);
+    if (newest && windowMs !== null) {
+      const lag = ms(freshness.dataAsOf) - newest.at;
+      if (lag > windowMs) {
+        const days = (lag / 86400000).toFixed(1);
+        report(
+          "data.staleness-accounted",
+          `The record dates its data at ${freshness.dataAsOf}, but the most recent source it names, '${newest.name}', is as of ${new Date(newest.at).toISOString()} — ${days} days earlier, beyond the declared freshness window, with no account of how that was allowed for.`,
+          { evidence: ["data.freshness.dataAsOf", "provenance.dataSources"] },
+        );
+      }
+    }
+  }
+
   // D7 — completeness.
   const completeness = record?.data?.completeness;
   if (!completeness || !Array.isArray(completeness.knownGaps) || !Array.isArray(completeness.criticalMissing)) {
@@ -539,6 +587,17 @@ export function inspect({ record, schema, parameters, asOf }) {
             { evidence: ["market.raw", "market.vig"] },
           );
         }
+        // C4 — the stated overround against the one the quoted prices imply. The computation was
+        // already being performed to decide whether removal was required; only the comparison was
+        // missing, so a record could state any overround it liked. Adoption #1 (A2). Probability
+        // space, so `tolerance` is the right constant here.
+        if (typeof market.vig?.overround === "number" && Math.abs(market.vig.overround - overround) > parameters.tolerance) {
+          report(
+            "market.vig-removed",
+            `The record states an overround of ${market.vig.overround}, but the quoted prices imply ${overround.toFixed(6)}.`,
+            { evidence: ["market.vig.overround", "market.raw"] },
+          );
+        }
         if (market.vig?.method === "proportional") {
           // The first raw price is the outcome being predicted, by the schema's convention that
           // raw[0] is this record's subject.
@@ -582,10 +641,13 @@ export function inspect({ record, schema, parameters, asOf }) {
       });
     } else if (typeof output.probability === "number") {
       const expected = output.probability * (ev.payout - ev.stake) - (1 - output.probability) * ev.stake;
-      if (Math.abs(expected - ev.value) > parameters.tolerance) {
+      // Currency space, not probability space (C3). The comparison is against currencyTolerance
+      // because the stated value is money and money is published rounded; `tolerance` stays at
+      // 1e-4 for the probability-space checks, which is where it earns its strictness.
+      if (Math.abs(expected - ev.value) > parameters.currencyTolerance) {
         report(
           "ev.recomputable",
-          `The stated expected value of ${ev.value} does not follow from the probability, stake, and payout (expected ${expected.toFixed(4)}). A common cause is treating payout as the net win rather than the total return.`,
+          `The stated expected value of ${ev.value} does not follow from the probability, stake, and payout (expected ${expected.toFixed(4)}, tolerance ${parameters.currencyTolerance}). A common cause is treating payout as the net win rather than the total return.`,
           { evidence: ["expectedValue"] },
         );
       }

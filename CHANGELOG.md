@@ -64,6 +64,28 @@ which is the decision record for this release. No change originates outside cand
   what is easy to detect, and the 46/50 principle — a truthful `not-evaluated` beats fabricated
   assurance — cuts this way as readily as the other.
 
+- **C3 — expected value is compared in currency space.** A new `parameters.currencyTolerance`
+  (default `0.005`) governs `ev.recomputable`; `parameters.tolerance` stays at `0.0001` and now
+  governs probability space only. Adoption #1 found one number serving both, so an expected value
+  rounded to the cent — the correct thing for an adopter to publish — failed permanently against an
+  exact recompute. The tempting fix was to widen the shared tolerance, which would have loosened
+  `edge.recomputable`, whose strictness is what makes a fabricated edge detectable.
+
+- **C4 — a stated `market.vig.overround` is verified against the quoted prices.** The value was
+  already being recomputed to decide whether removal was required; only the comparison was missing,
+  so a record could state any margin beside prices that implied another. Reported against
+  `market.vig-removed`. Adoption #1 (A2).
+
+- **C5 — freshness is reconciled against the record's own provenance.** A record that dates its data
+  later than every source in `provenance.dataSources` claims a freshness its provenance does not
+  support; reported against `data.staleness-accounted`, whose subject that is. The comparison is
+  against the most recent source, so older reference data alongside current observation data is not a
+  contradiction.
+
+  **Scope, stated because it is easy to overstate:** this closes one evasion, not the
+  under-declaration boundary. An empty `criticalMissing` and an omitted `ensemble` have no
+  independent referent inside the artifact, and nothing in this release reaches them.
+
 - **C1 — the ensemble not-applicable reason no longer asserts what produced the prediction.** It read
   `"This record names no ensemble; a single method produced the prediction."` The second clause was
   inferred from a missing field and stated as observed, and Adoptions #1, #2, and #3 all found it —

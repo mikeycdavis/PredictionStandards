@@ -86,7 +86,12 @@
           "maximum": 1
         },
         "tolerance": {
-          "description": "Numeric tolerance when recomputing a declared edge, expected value, or de-vigged probability. Evaluator default: 0.0001.",
+          "description": "Numeric tolerance in PROBABILITY space: recomputing a declared edge, a de-vigged probability, or a stated overround. Evaluator default: 0.0001. Money is compared under currencyTolerance instead, because the two live on different scales and one number cannot serve both without either loosening the edge check or rejecting an expected value rounded to the cent.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "currencyTolerance": {
+          "description": "Numeric tolerance in CURRENCY space, applied when recomputing a declared expected value. Evaluator default: 0.005 — half a cent, so an expected value published at the minor unit reconciles. Set it to the resolution of your currency's minor unit; a currency with no minor unit needs a larger value.",
           "type": "number",
           "exclusiveMinimum": 0
         },

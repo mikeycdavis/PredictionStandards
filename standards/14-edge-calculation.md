@@ -149,6 +149,12 @@ Both categories are kept separate — `edge` and `ev` — even though both belon
 because the whole point of the separation is that a probability difference and a monetary quantity
 never share a home.
 
+Recomputation of the expected value runs against `parameters.currencyTolerance` — half a cent by
+default — rather than the `tolerance` used for probabilities. Adoption #1 found the two sharing one
+number, which made an expected value published at the minor unit fail permanently. Raising the shared
+tolerance would have loosened `edge.recomputable` at the same time, and that rule's strictness is
+what makes a fabricated edge detectable, so the two scales were separated instead.
+
 **R4 is enforced under [Standard 15](15-vig-removal.md)** rather than duplicated here, so there is one
 definition of correct de-vigging and no second copy to drift.
 

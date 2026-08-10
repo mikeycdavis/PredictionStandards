@@ -104,5 +104,18 @@ establishes that an accounting was *written* once the data passed its window. It
 that the accounting was adequate to the age, and it cannot see a window set generously enough that
 genuinely stale data never trips the check at all. Both limits are in the rule's assurance note.
 
+Since 1.1.0 the same rule also reconciles `data.freshness.dataAsOf` against the record's own
+`provenance.dataSources[].asOf`. A record that dates its data later than every source it names is
+claiming a freshness its provenance does not support, and that finding rests on two fields of the
+artifact disagreeing rather than on the record's own account of its age.
+
+The comparison is against the **most recent** source. Older reference data alongside current
+observation data is ordinary — a page fetched this morning scored against a labelled corpus from
+April — and is not a contradiction.
+
+**This closes one evasion, not the under-declaration boundary.** A producer can still empty
+`criticalMissing` or omit an ensemble, and neither has any independent referent inside the record for
+a check to compare against. The freshness window happened to have one.
+
 **R3 has no rule.** Whether a project's freshness windows suit its subject matter is a judgement about
 the domain, and the evaluator has no access to it.
