@@ -16,7 +16,14 @@ A test enforces this: weakening a rule silently is the manipulation Standard 18 
 
 ## [Unreleased]
 
-Version 1.1.0 in progress. Every change below traces to a disposition in
+## [1.1.0] — 2026-08-09
+
+Standards version 1.1.0, report schema 1.0, **record schema 1.1.0**.
+
+The adoption release. Three deliberately different projects were run against the frozen 1.0.0
+baseline without changing it, and the
+[v1.1 evidence review](artifacts/release-review/v1.1-evidence-review.md) dispositioned all nineteen
+findings before any code was written. Every change below traces to a disposition in
 [`artifacts/release-review/v1.1-evidence-review.md`](artifacts/release-review/v1.1-evidence-review.md),
 which is the decision record for this release. No change originates outside candidates C1–C10.
 
