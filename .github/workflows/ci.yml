@@ -5,12 +5,39 @@ on:
     branches: [main]
   pull_request:
 
+# This workflow no longer lists the checks. It runs `scripts/ci.sh`, which builds the pinned CI
+# image and runs `node scripts/ci.mjs` inside it — the same command a developer runs locally and
+# the same command a self-hosted runner would run. The stage list lives in package.json's
+# `ci.stages` and exists in exactly one place.
+#
+# WHY THE STEPS WERE COLLAPSED. They used to be spelled out here, one `run:` per check, which reads
+# better in the Actions UI and is why it was written that way. It also made this file a second
+# definition of the pipeline, and a second definition drifts: a check added to the npm scripts and
+# not to this list simply stops being CI, while the workflow continues to look complete. The
+# per-stage detail is not lost — scripts/ci.mjs prints a banner, the command and a timing for every
+# stage, so the log still shows which check failed and what it ran. The ordering comment that used
+# to live here now lives with the definition, in scripts/ci.mjs.
+#
+# WHAT THIS WORKFLOW IS FOR, given local verification exists. It is the independent re-run: a clean
+# clone, on hardware nobody was working on, with no untracked files and no developer environment.
+# Local CI proves the author verified the commit they pushed; this proves the commit verifies
+# somewhere that is not the author's machine. Neither replaces the other, and the pull request body
+# written by scripts/submit-pr.mjs is careful to claim only the first.
+#
+# If GitHub-hosted Actions are unavailable — quota, billing, or a private repository out of minutes
+# — local CI is unaffected. It has no dependency on this file, and `scripts/ci.sh` here is the same
+# entry point, so adopting a self-hosted runner is a change of `runs-on` and nothing else.
+
 jobs:
-  test:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # Node is needed on the runner only to read package.json before the container starts. The
+      # pipeline itself runs on the Node pinned by digest in Dockerfile.ci, not on this one — which
+      # is the point of containerising it, and is how the mismatch this replaced was found: the
+      # test command required a newer Node than this line has ever provided.
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -19,32 +46,15 @@ jobs:
       # in PROJECT.md. If an `npm ci` ever appears here, that decision changed and should be argued
       # for rather than arrived at.
 
-      # Order matters. The invariant checks run before the tests because each one guards an
-      # assumption the tests rest on: that the series still matches its sources, that quoted
-      # prohibitions still say what the source said, and that no rule has been quietly weakened.
-      - name: Source inventory
-        run: npm run inventory
+      - name: Local CI pipeline (Docker)
+        run: ./scripts/ci.sh
 
-      - name: Source fidelity
-        run: npm run fidelity
-
-      - name: Standards integrity
-        run: npm run integrity
-
-      - name: Project policy
-        run: npm run policy
-
-      - name: Diagram freshness
-        run: npm run diagrams
-
-      - name: Test
-        run: npm test
-
-      - name: Audit the example records
-        run: npm run audit
-
-      # The gate. `check` is the only step that produces a verdict, and it is deliberately not run
-      # with --strict: that flag belongs to `audit` and does not exist here, because a flag that
-      # changes what a verdict means is a trap.
-      - name: Check the example records
-        run: npm run check
+      # The machine-readable result, kept for the same reason the local one is written: a green
+      # tick says a pipeline passed, and this says which stages that was.
+      - name: Upload run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-ci-evidence
+          path: artifacts/local-ci/latest.json
+          if-no-files-found: warn
