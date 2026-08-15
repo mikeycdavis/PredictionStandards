@@ -16,6 +16,34 @@ A test enforces this: weakening a rule silently is the manipulation Standard 18 
 
 ## [Unreleased]
 
+No change to the standards, the rule catalog, or either schema. Repository tooling only.
+
+### Fixed
+
+- **`npm test` could not have run on the Node version CI declares.** The command was
+  `node --test "test/*.test.mjs"`; glob patterns in `--test` are resolved by the runner, and that
+  support arrived after Node 20. `.github/workflows/ci.yml` pins Node 20 and `engines.node` declares
+  `>=18`, so on both the declared floor and the declared CI version the command failed outright with
+  `Could not find 'test/*.test.mjs'`. It passed on the developer's machine only because that machine
+  runs Node 24 — a check reporting on the environment it happened to find rather than the one the
+  repository claims. Now `node --test test/`, verified to collect and pass all tests on Node 18.20.8,
+  20 and 24. No test moved, and the count is unchanged.
+
+### Added
+
+- **Local CI in Docker, and verified pull-request submission.** `scripts/ci.ps1` / `scripts/ci.sh`
+  run the complete pipeline in an ephemeral container with the repository mounted read-only;
+  `scripts/submit-pr.ps1` / `.sh` enforce that the commit pushed for a pull request is exactly the
+  commit that passed it — clean tree before the run, full-SHA comparison after it, and a push that
+  names the SHA rather than the branch. See [docs/local-ci.md](docs/local-ci.md).
+- `test/local-ci.test.mjs` — 17 arms pinning that guard, run inside the pipeline they protect.
+
+### Changed
+
+- **The pipeline is defined once.** `ci.stages` in `package.json` is the stage list and
+  `scripts/ci.mjs` executes it; `.github/workflows/ci.yml` now invokes `scripts/ci.sh` instead of
+  restating the eight steps as eight `run:` blocks. No check was added, removed or reordered.
+
 ## [1.1.0] — 2026-08-09
 
 Standards version 1.1.0, report schema 1.0, **record schema 1.1.0**.
