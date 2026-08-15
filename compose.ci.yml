@@ -1,0 +1,54 @@
+# The isolated CI environment.
+#
+# Invoked only through `scripts/ci.ps1` / `scripts/ci.sh`, which supply a unique project name so
+# that two repositories — or two runs of this one — cannot collide, and so that teardown can be
+# scoped to this run's resources rather than to the developer's Docker installation at large.
+# Running `docker compose -f compose.ci.yml up` by hand works, but skips the SHA capture and the
+# guaranteed teardown, so it is a debugging aid rather than the pipeline.
+#
+# NO SERVICES SECTION BEYOND `ci`, AND THAT IS A FINDING RATHER THAN AN OMISSION. This repository
+# has no database, no message broker, no HTTP dependency and no browser: every check is a pure
+# function of the tracked files. There is therefore nothing to health-check and nothing to wait
+# for, and a `depends_on: { condition: service_healthy }` block here would be decoration asserting
+# a robustness the pipeline does not actually need. If a dependency is ever added, it belongs in
+# this file with a real healthcheck, and `scripts/ci.ps1` already waits on compose's own readiness
+# rather than on a sleep.
+
+services:
+  ci:
+    build:
+      context: .
+      dockerfile: Dockerfile.ci
+    # Named per-run by the runner so concurrent runs build and tag independently.
+    image: ${CI_IMAGE:-predictionstandards-ci:local}
+    init: true
+    # The repository goes in read-only. This is the isolation boundary doing real work rather than
+    # ceremony: it makes it *impossible* for the pipeline to modify the tree whose commit it is
+    # about to certify, so "CI passed, then something changed the source" is not a state this
+    # arrangement can reach from the inside.
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+        read_only: true
+      # The single writable path, and the only thing CI is permitted to produce.
+      - type: bind
+        source: ./artifacts/local-ci
+        target: /out
+    # The tests create their scratch directories under the OS temp dir. Backing it with a tmpfs
+    # means that state cannot outlive the container even if teardown is interrupted.
+    tmpfs:
+      - /tmp
+    environment:
+      CI_EVIDENCE_DIR: /out
+      CI_ENVIRONMENT: docker
+      CI_REPOSITORY: ${CI_REPOSITORY:-}
+      CI_BRANCH: ${CI_BRANCH:-}
+      CI_COMMIT: ${CI_COMMIT:-}
+    # No ports are published: nothing in this pipeline serves traffic, and an exposed port would be
+    # a listening socket on the developer's machine in exchange for nothing.
+    #
+    # No Docker socket is mounted. The pipeline runs the repository's own checks; it does not need
+    # to start containers, and handing a test process the daemon socket would hand it the host.
+    network_mode: none
+    command: ["node", "scripts/ci.mjs"]

@@ -1,0 +1,33 @@
+# The CI environment, and nothing else.
+#
+# Pinned by digest rather than by tag. `node:20-alpine` is a moving target — the same tag resolves
+# to a different image after any upstream rebuild — and a pipeline whose toolchain changes without
+# a commit is a pipeline whose green result means something different on Tuesday than it did on
+# Monday. The digest is duplicated in package.json's `ci.image` so the runner can report which
+# environment it used; `scripts/ci.ps1` checks the two agree rather than trusting either.
+#
+# Node 20 matches what .github/workflows/ci.yml runs, deliberately. The point of the container is
+# that the pipeline stops depending on whichever Node happens to be on the developer's PATH, so
+# picking a *different* version here would trade one unverified assumption for another.
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+
+# No install step. This repository has no third-party dependencies, by the decision recorded in
+# PROJECT.md, so there is no lockfile to restore and nothing to cache. If a `npm ci` ever appears
+# here, that decision changed and should be argued for rather than arrived at.
+
+# The repository is bind-mounted read-only at run time; it is deliberately not COPYed in. A baked
+# copy would let the image and the working tree disagree about what was verified.
+WORKDIR /workspace
+
+# Everything the run needs to write goes somewhere that is not the repository: /tmp for the tests'
+# scratch directories, /out for the run evidence. HOME is redirected because a tool that quietly
+# writes a cache into the source tree would otherwise fail against a read-only mount at the least
+# convenient moment.
+ENV HOME=/tmp \
+    npm_config_cache=/tmp/.npm \
+    npm_config_update_notifier=false \
+    CI_EVIDENCE_DIR=/out
+
+USER node
+
+CMD ["node", "scripts/ci.mjs"]
