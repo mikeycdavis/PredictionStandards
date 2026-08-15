@@ -1,0 +1,10 @@
+# The result of the most recent local CI run. Evidence of a verification, not a verification —
+# it records what happened on one machine at one moment, and committing it would invite a reader
+# to trust a file instead of re-running the pipeline. The pipeline is cheap; the file is not
+# authority.
+artifacts/local-ci/
+
+# This repository has no third-party dependencies, by the decision recorded in PROJECT.md. The
+# entry is here so that an accidental `npm install` shows up as a missing check rather than as a
+# committed tree.
+node_modules/

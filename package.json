@@ -15,7 +15,21 @@
     "fidelity": "node scripts/fidelity.mjs",
     "integrity": "node scripts/integrity.mjs",
     "policy": "node scripts/policy.mjs",
-    "diagrams": "node scripts/diagrams.mjs"
+    "diagrams": "node scripts/diagrams.mjs",
+    "ci": "node scripts/ci.mjs"
+  },
+  "ci": {
+    "image": "node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293",
+    "stages": [
+      "inventory",
+      "fidelity",
+      "integrity",
+      "policy",
+      "diagrams",
+      "test",
+      "audit",
+      "check"
+    ]
   },
   "engines": {
     "node": ">=18"
