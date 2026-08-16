@@ -46,8 +46,12 @@ jobs:
       # in PROJECT.md. If an `npm ci` ever appears here, that decision changed and should be argued
       # for rather than arrived at.
 
+      # Invoked as `sh ./scripts/ci.sh` rather than `./scripts/ci.sh` on purpose. The executable bit
+      # is committed, but it is one `git rm --cached` away from being lost on a Windows checkout —
+      # which is exactly how this step first failed, with exit code 126 and no output to explain it.
+      # A lost mode bit should be a nuisance for POSIX developers, not a broken pipeline.
       - name: Local CI pipeline (Docker)
-        run: ./scripts/ci.sh
+        run: sh ./scripts/ci.sh
 
       # The machine-readable result, kept for the same reason the local one is written: a green
       # tick says a pipeline passed, and this says which stages that was.
