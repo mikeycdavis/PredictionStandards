@@ -169,6 +169,27 @@ export function prBody(userBody, verification) {
   return written ? `${written}\n\n---\n\n${block}\n` : `${block}\n`;
 }
 
+/**
+ * Remove a previous verification block, keeping everything the author wrote.
+ *
+ * Re-running submission on a branch that already has a pull request pushes a NEW verified SHA to a
+ * PR whose body still names the old one. That is a stale receipt: the head commit and the commit
+ * the body claims was verified are different objects, and the body is the more convincing of the
+ * two because it is prose. A repository whose entire subject is the difference between a current
+ * determination and a stale one does not get to ship that.
+ *
+ * So the block is replaced rather than appended, and the author's description survives untouched.
+ */
+export function stripVerification(body) {
+  const text = String(body ?? "");
+  const index = text.indexOf("## Local CI");
+  if (index === -1) return text.trim();
+  return text
+    .slice(0, index)
+    .replace(/\n*-{3,}\s*$/, "")
+    .trim();
+}
+
 // ---------------------------------------------------------------------------------------------
 // The effects.
 // ---------------------------------------------------------------------------------------------
@@ -345,8 +366,35 @@ export function main(argv) {
     const stderr = created.stderr ?? "";
     process.stderr.write(stderr);
     if (/already exists/i.test(stderr)) {
-      process.stdout.write("\nThe verified commit was pushed to the existing pull request.\n");
-      return EXIT_OK;
+      // The pull request already exists and now points at a newly verified commit, so its
+      // verification block describes a commit that is no longer its head. Refresh it, keeping the
+      // author's description. Failing to refresh is reported rather than swallowed: a stale receipt
+      // that nobody was told about is worse than a missing one.
+      const existing = spawnSync("gh", ["pr", "view", "--json", "body", "-q", ".body"], {
+        cwd: ROOT,
+        encoding: "utf8",
+      });
+      if (existing.status === 0) {
+        const refreshed = prBody(stripVerification(existing.stdout), {
+          commit: verifiedSha,
+          branch,
+          image: evidence.environment === "docker" ? readImage() : evidence.environment,
+          stages: evidence.checks.filter((c) => c.result === "passed").map((c) => c.name),
+          completedAt: evidence.completedAt,
+        });
+        const edited = spawnSync("gh", ["pr", "edit", "--body", refreshed], { cwd: ROOT, encoding: "utf8" });
+        if (edited.status === 0) {
+          process.stdout.write(
+            `\nThe verified commit was pushed to the existing pull request, and its verification ` +
+              `block now names ${verifiedSha}.\n`,
+          );
+          return EXIT_OK;
+        }
+      }
+      return refuse(
+        `the verified commit ${verifiedSha} was pushed, but the existing pull request's ` +
+          "verification block could not be refreshed and still names an earlier commit. Update it by hand.",
+      );
     }
     return refuse("the verified commit was pushed, but the PR could not be created.");
   }

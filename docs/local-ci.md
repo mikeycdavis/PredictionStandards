@@ -47,6 +47,7 @@ Options, and there are deliberately only two:
 |---|---|
 | `--verbose` | Stream every stage's output as it runs, not only a failing stage's |
 | `--keep-on-failure` | Leave the container and network in place after a failure, for debugging |
+| `--json` | Emit the result document on stdout. Under this flag the human narration goes to stderr, so `\| jq .` works |
 
 **There is no option that runs a subset of the pipeline**, and no option that skips it. A flag that
 shortened the run would produce a green result meaning something other than what the reader
@@ -63,7 +64,7 @@ fidelity    quoted prohibitions still say what the source said
 integrity   the standards-integrity ratchet — no rule weakened in silence
 policy      this repository's own project-policy.yml is valid and compliant
 diagrams    every .mmd matches the copy embedded in Markdown
-test        node --test test/ — 207 tests
+test        node --test — 209 tests
 audit       survey the example records
 check       the verdict on the example records
 ```
@@ -137,6 +138,13 @@ gh pr create, with the verification appended to your description
 It never commits, stages, stashes or amends anything to make the pipeline pass, and never pushes
 after a failed or unverified run.
 
+**Re-running on a branch that already has a pull request replaces the verification block** rather
+than leaving the old one in place. Pushing a newly verified SHA to a PR whose body still names the
+previous one produces a stale receipt — the head commit and the commit the body claims was verified
+are different objects, and the body is the more convincing of the two because it is prose. Your
+description is preserved; only the block is refreshed, and a refresh that fails is reported rather
+than swallowed.
+
 ### Why three separate checks, and not one
 
 Running CI and then pushing is not the same as pushing what CI verified. A pipeline takes minutes.
@@ -204,6 +212,15 @@ network and volume is namespaced under it, which is what makes teardown safe. Te
 created. No `docker system prune` and no bare `docker rm` appears anywhere in this repository, so
 your own containers, volumes and databases are outside what this can touch even on the failure
 path.
+
+**On POSIX hosts the container runs as your uid.** The image's `node` user is uid 1000; a
+GitHub-hosted runner is uid 1001 and a Linux developer may be anything. `artifacts/local-ci` is
+created by the host user with ordinary permissions, so a container running as a different uid cannot
+write the evidence — and that failure is quiet in the worst way: the pipeline warns and still exits
+0, then `submit-pr` refuses because the evidence it needs is missing. `scripts/ci.sh` passes
+`--user "$(id -u):$(id -g)"`, which removes the mismatch instead of loosening permissions on the
+directory. Windows has no meaningful uid to pass and Docker Desktop's bind mounts are permissive, so
+`scripts/ci.ps1` leaves the image's own `USER` in place.
 
 **The container gets no network and no Docker socket.** `network_mode: none`, because nothing in
 this pipeline serves or fetches anything; no socket, because handing a test process the daemon

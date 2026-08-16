@@ -7,7 +7,7 @@
     "predictions": "scripts/predictions.mjs"
   },
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test",
     "audit": "node scripts/predictions.mjs audit examples/records",
     "audit:strict": "node scripts/predictions.mjs audit examples/records --strict",
     "check": "node scripts/predictions.mjs check examples/records",

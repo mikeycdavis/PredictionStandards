@@ -96,8 +96,21 @@ else
     # container's exit status is the pipeline's result with nothing in between to lose it. If a
     # dependency with a healthcheck is ever added, an `up --wait` on it belongs here — a sleep
     # never does.
+    # Run as the host user on POSIX. The image's `node` user is uid 1000; a GitHub-hosted runner is
+    # uid 1001 and a typical Linux developer may be anything. The bind-mounted evidence directory is
+    # created by the host user with ordinary 0755 permissions, so a container running as a different
+    # uid cannot write /out/latest.json — and the failure is quiet in the worst way: ci.mjs warns
+    # and still exits 0 on a passing pipeline, then submit-pr refuses because the evidence it needs
+    # is missing. Matching the uid removes the mismatch rather than loosening permissions on the
+    # directory. Windows hosts have no meaningful uid to pass, and Docker Desktop's bind mounts are
+    # permissive, so `id` is simply absent there and the image's own USER applies.
+    USER_FLAG=''
+    case "$(uname -s 2>/dev/null || echo unknown)" in
+        MINGW*|MSYS*|CYGWIN*) ;;
+        *) if command -v id >/dev/null 2>&1; then USER_FLAG="--user $(id -u):$(id -g)"; fi ;;
+    esac
     # shellcheck disable=SC2086
-    $COMPOSE run --rm --no-deps ci node scripts/ci.mjs $STREAM
+    $COMPOSE run --rm --no-deps $USER_FLAG ci node scripts/ci.mjs $STREAM
     EXIT_CODE=$?
 fi
 set -e

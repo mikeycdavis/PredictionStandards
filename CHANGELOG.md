@@ -26,8 +26,14 @@ No change to the standards, the rule catalog, or either schema. Repository tooli
   `>=18`, so on both the declared floor and the declared CI version the command failed outright with
   `Could not find 'test/*.test.mjs'`. It passed on the developer's machine only because that machine
   runs Node 24 — a check reporting on the environment it happened to find rather than the one the
-  repository claims. Now `node --test test/`, verified to collect and pass all tests on Node 18.20.8,
-  20 and 24. No test moved, and the count is unchanged.
+  repository claims.
+
+  It is now `node --test`, with no positional argument, using the runner's own discovery. The
+  obvious repair — `node --test test/` — was tried first and **is wrong in the mirror-image way**:
+  Node 24 resolves a positional path as a module rather than a directory to search, so it exits 1
+  with `Cannot find module '.../test'`. A command verified on 18 and 20 but not on 24 reproduces the
+  original defect with the endpoints swapped. The committed form is verified to collect and pass all
+  tests on **Node 18.20.8, 20.20.2 and 24.19.0**, each run in its own container. No test moved.
 
 ### Added
 
@@ -36,7 +42,7 @@ No change to the standards, the rule catalog, or either schema. Repository tooli
   `scripts/submit-pr.ps1` / `.sh` enforce that the commit pushed for a pull request is exactly the
   commit that passed it — clean tree before the run, full-SHA comparison after it, and a push that
   names the SHA rather than the branch. See [docs/local-ci.md](docs/local-ci.md).
-- `test/local-ci.test.mjs` — 17 arms pinning that guard, run inside the pipeline they protect.
+- `test/local-ci.test.mjs` — 19 arms pinning that guard, run inside the pipeline they protect.
 
 ### Changed
 

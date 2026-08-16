@@ -94,13 +94,15 @@ function loadPipeline() {
   });
 }
 
-function runStage(stage, { verbose }) {
+function runStage(stage, { verbose, json }) {
   const startedAt = Date.now();
   const result = spawnSync(stage.command, {
     cwd: ROOT,
     shell: true,
     encoding: "utf8",
-    stdio: verbose ? "inherit" : "pipe",
+    // Under --json a stage may not inherit stdout: the only thing on stdout in that mode is the
+    // result document, and a stage that prints into it makes the document unparseable.
+    stdio: verbose && !json ? "inherit" : "pipe",
     env: { ...process.env, npm_config_update_notifier: "false" },
   });
 
@@ -113,8 +115,9 @@ function runStage(stage, { verbose }) {
     return { ok: false, durationMs, output: `${stage.command} could not be started: ${result.error.message}` };
   }
 
-  const output = verbose ? "" : `${result.stdout ?? ""}${result.stderr ?? ""}`;
-  return { ok: result.status === 0, status: result.status, durationMs, output };
+  const captured = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  const output = verbose && !json ? "" : captured;
+  return { ok: result.status === 0, status: result.status, durationMs, output, streamed: verbose && json };
 }
 
 function main(argv) {
@@ -139,11 +142,17 @@ function main(argv) {
   const checks = [];
   let failed = null;
 
-  process.stdout.write(`Local CI — ${pipeline.length} stages\n\n`);
+  // Under --json, stdout carries the result document and nothing else — a consumer piping this to
+  // `jq` must not have to strip a banner first. The human narration is still produced; it goes to
+  // stderr, where it remains visible on a terminal and out of the way of a parser.
+  const say = (text) => (json ? process.stderr : process.stdout).write(text);
+
+  say(`Local CI — ${pipeline.length} stages\n\n`);
 
   for (const stage of pipeline) {
-    process.stdout.write(`>> ${stage.title}\n   ${stage.command}\n`);
-    const outcome = runStage(stage, { verbose });
+    say(`>> ${stage.title}\n   ${stage.command}\n`);
+    const outcome = runStage(stage, { verbose, json });
+    if (outcome.streamed && outcome.output) say(`${outcome.output}\n`);
     checks.push({
       name: stage.name,
       command: stage.command,
@@ -152,12 +161,12 @@ function main(argv) {
     });
 
     if (outcome.ok) {
-      process.stdout.write(`   PASS (${outcome.durationMs} ms)\n\n`);
+      say(`   PASS (${outcome.durationMs} ms)\n\n`);
       continue;
     }
 
-    process.stdout.write(`   FAIL (${outcome.durationMs} ms)\n`);
-    if (outcome.output) process.stdout.write(`${outcome.output}\n`);
+    say(`   FAIL (${outcome.durationMs} ms)\n`);
+    if (outcome.output && !outcome.streamed) say(`${outcome.output}\n`);
     failed = stage.name;
     break; // fail fast: a later stage's result is not information once an earlier one is red
   }
@@ -193,7 +202,7 @@ function main(argv) {
   if (json) process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`);
 
   const passedCount = checks.filter((c) => c.result === "passed").length;
-  process.stdout.write(
+  say(
     failed
       ? `Local CI FAILED at stage "${failed}" — ${passedCount} of ${checks.length} stages passed.\n`
       : `Local CI PASSED — ${passedCount} of ${checks.length} stages.\n`,

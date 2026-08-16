@@ -33,6 +33,7 @@ import {
   checkTree,
   parseArgs,
   prBody,
+  stripVerification,
   verifyUnchanged,
 } from "../scripts/submit-pr.mjs";
 
@@ -160,6 +161,27 @@ test("an empty body yields the verification block alone rather than a stray sepa
   const body = prBody("   ", verification);
   assert.ok(body.startsWith("## Local CI"));
   assert.ok(!body.includes("---\n\n## Local CI"));
+});
+
+test("re-submitting replaces the verification block rather than stacking a stale one", () => {
+  // The failure this closes: a second run pushes a NEW verified SHA to an existing pull request
+  // whose body still names the OLD one. The head commit and the commit the body claims was
+  // verified are then different objects, and the body is the more convincing of the two because it
+  // is prose. A repository whose subject is the difference between a current determination and a
+  // stale one does not get to ship that.
+  const first = prBody("Fixes the thing.", verification);
+  const second = prBody(stripVerification(first), { ...verification, commit: SHA_B });
+
+  assert.match(second, new RegExp(SHA_B), "the refreshed body does not name the new commit");
+  assert.ok(!second.includes(SHA_A), "the refreshed body still names the previously verified commit");
+  assert.equal(second.match(/## Local CI/g).length, 1, "the verification block was stacked, not replaced");
+  assert.ok(second.startsWith("Fixes the thing."), "the author's description was lost on refresh");
+});
+
+test("stripping a body that was never stamped leaves it exactly as written", () => {
+  assert.equal(stripVerification("Just a description."), "Just a description.");
+  assert.equal(stripVerification(""), "");
+  assert.equal(stripVerification(null), "");
 });
 
 // -------------------------------------------------------------------------------------------
