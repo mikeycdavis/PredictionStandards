@@ -1,0 +1,6 @@
+# The CI image COPYs nothing — the repository is bind-mounted read-only at run time — so this file
+# exists to keep it that way cheaply: if a COPY is ever added, git history and the previous run's
+# evidence must not be what gets baked into it.
+.git/
+artifacts/local-ci/
+node_modules/

@@ -114,6 +114,7 @@ integrity.no-manipulation
 - [docs/ml-vs-prediction-boundary.md](docs/ml-vs-prediction-boundary.md) — what this pack does and does not evaluate
 - [docs/design/concepts.md](docs/design/concepts.md) — which standards-system concepts were adopted, and the reasoning
 - [docs/architecture.md](docs/architecture.md) — how the pieces fit together
+- [docs/local-ci.md](docs/local-ci.md) — running the full pipeline in Docker, and the verified-PR workflow
 
 ## Layout
 
@@ -121,22 +122,48 @@ integrity.no-manipulation
 standards/       18 numbered normative documents
 rules/           the rule catalog, one JSON file per category
 schemas/         prediction-record and project-policy schemas
-scripts/         the CLI and the invariant checks; ESM, zero dependencies
+scripts/         the CLI, the invariant checks, and the CI harness; ESM, zero dependencies
 test/            node --test, with fixture records and known-negative policies
 examples/        two records that reach SUPPORTED: one prediction, one abstention
 templates/       what an adopting project copies
 artifacts/       the source specs, the reviewed inventory, the integrity baseline, the ADRs
 project-policy.yml   this repository's own policy — it is its own first adopter
+compose.ci.yml       the ephemeral CI environment; Dockerfile.ci pins it by digest
 ```
 
 ## Commands
 
-```bash
-npm run inventory && npm run fidelity && npm run integrity && npm run policy && npm run diagrams && npm test && npm run audit && npm run check
+`audit` surveys, `check` decides, `explain` justifies, `status` summarises, `init` scaffolds. Full
+detail in [INSTRUCTIONS.md](INSTRUCTIONS.md).
+
+## CI, and verified pull requests
+
+The complete pipeline runs in Docker, locally, before anything is pushed:
+
+```powershell
+.\scripts\ci.ps1
 ```
 
-`audit` surveys, `check` decides, `explain` justifies, `status` summarises, `init` scaffolds. Gate CI
-on `check`. Full detail in [INSTRUCTIONS.md](INSTRUCTIONS.md).
+and a pull request is opened only for a commit that pipeline has verified:
+
+```powershell
+.\scripts\submit-pr.ps1
+```
+
+which rejects a dirty tree, records `HEAD`, runs the full pipeline, re-checks `HEAD`, and pushes the
+**SHA rather than the branch** — so the commit on the pull request is exactly the commit that
+passed. `scripts/ci.sh` and `scripts/submit-pr.sh` are the POSIX equivalents.
+
+The eight stages are `inventory`, `fidelity`, `integrity`, `policy`, `diagrams`, `test`, `audit`,
+`check`, in that order: the invariant checks precede the tests because each guards an assumption the
+tests rest on, and `check` runs last because it is the only stage that produces a verdict. The list
+lives in one place — `ci.stages` in `package.json` — and `npm run ci` executes it. There is no flag
+that runs a subset.
+
+`.github/workflows/ci.yml` invokes the same entry point rather than restating the steps, and is the
+independent re-run on a clean clone; it is not required to open a pull request. Full detail,
+including the isolation model and how to debug a failed container, in
+[docs/local-ci.md](docs/local-ci.md).
 
 ## Conventions
 
