@@ -345,12 +345,17 @@ test("the documentation states the boundary next to the field", async () => {
   const { readFile } = await import("node:fs/promises");
   const docs = await readFile(path.join(ROOT, "docs/json-output.md"), "utf8");
 
-  assert.match(docs, /not a summary of findings/i);
-  assert.match(docs, /asOf/, "retained verdicts require the instant they were valid as of");
-  assert.match(docs, /NOT_EVALUATED/);
+  // Matched across line breaks: the prose is wrapped for reading, and a claim should not have to
+  // sit on one line to count as published.
+  const prose = docs.replace(/\s+/g, " ");
+
+  assert.match(prose, /not a summary of findings/i);
+  assert.match(prose, /asOf/, "retained verdicts require the instant they were valid as of");
+  assert.match(prose, /NOT_EVALUATED/);
   assert.match(
-    docs,
+    prose,
     /does not (imply|mean) (that )?every applicable rule passed/i,
     "SUPPORTED does not imply every applicable rule passed — rules nothing evaluated are skipped",
   );
+  assert.match(prose, /as of time T|as of an instant/i, "and the verdict is time-bound, not commit-bound");
 });

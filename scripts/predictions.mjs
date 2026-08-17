@@ -37,7 +37,7 @@ import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 
 import { loadCatalog, assertBindings, coverage, CatalogError } from "./catalog.mjs";
-import { evaluate, envelope, STATUS } from "./compliance.mjs";
+import { evaluate, envelope, aggregateStatus, STATUS } from "./compliance.mjs";
 import { checkPolicy } from "./policy.mjs";
 import {
   EVALUATED_RULES,
@@ -163,7 +163,15 @@ async function evaluateAll({ catalog, schema, policy, target, asOf, includeSerie
   const reports = [];
   for (const entry of loaded) {
     if (entry.record === null) {
-      reports.push({ file: entry.file, parseError: entry.parseError, envelope: null });
+      // A record that could not be read produced no verdict, which is what NOT_EVALUATED means.
+      // Carried explicitly so the counts, the human output and the JSON stop giving three answers
+      // to one question (ADR 0010).
+      reports.push({
+        file: entry.file,
+        parseError: entry.parseError,
+        envelope: null,
+        status: STATUS.NOT_EVALUATED,
+      });
       continue;
     }
     const findings = [
@@ -185,6 +193,7 @@ async function evaluateAll({ catalog, schema, policy, target, asOf, includeSerie
 
     reports.push({
       file: entry.file,
+      status: verdict.status,
       envelope: envelope({
         verdict,
         project: policy?.project ?? null,
@@ -212,12 +221,11 @@ async function evaluateAll({ catalog, schema, policy, target, asOf, includeSerie
     [STATUS.BLOCKED_BY_INVARIANT]: "blockedByInvariant",
     [STATUS.NOT_EVALUATED]: "notEvaluated",
   };
-  for (const report of reports) {
-    if (!report.envelope) aggregate.notEvaluated++;
-    else aggregate[key[report.envelope.status]]++;
-  }
+  // Counts and verdict fold the same per-record statuses. Deriving them separately is how the two
+  // come to disagree.
+  for (const report of reports) aggregate[key[report.status]]++;
 
-  return { reports, aggregate, parameters };
+  return { reports, aggregate, status: aggregateStatus(reports.map((r) => r.status)), parameters };
 }
 
 /** Load the policy, or return the reason it could not be loaded. Never a verdict. */
@@ -236,7 +244,36 @@ async function loadPolicy(policyPath, asOf) {
   return { policy: result.document, policyFindings: result.findings };
 }
 
-const STATUS_NOTE = {
+/**
+ * What the top-level `status` claims, and — more importantly — what it does not. Published rather
+ * than kept internal because the enforcer's adapter contract has no field to carry it: `result`
+ * declares `statuses` and `passing` and nothing else, so this boundary can only travel in our own
+ * output and documentation (ADR 0010).
+ */
+export const AGGREGATE_NOTE =
+  "The status above is the strongest disposition observed across the checked set, not a summary of findings. " +
+  "No subordinate outcome may be inferred from it in either direction: NOT_EVALUATED does not mean nothing " +
+  "adverse was observed, and SUPPORTED does not mean every applicable rule passed — rules nothing evaluated " +
+  "are reported as not-evaluated. Read the aggregate counts and the per-record reports for what was found. " +
+  "The verdict is valid as of the asOf instant in this report; store it alongside any retained result.";
+
+/** Break a long note into terminal-width lines without splitting words. */
+function wrap(text, width = 94) {
+  const lines = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    if (line && line.length + 1 + word.length > width) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = line ? `${line} ${word}` : word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+export const STATUS_NOTE = {
   [STATUS.SUPPORTED]: "Every applicable rule that was evaluated passed. Rules nothing evaluated are listed as not-evaluated, not as passes.",
   [STATUS.SUPPORTED_WITH_EXCEPTIONS]: "Supported only by way of one or more approved exceptions. Each is listed above with its approver and expiry.",
   [STATUS.INSUFFICIENTLY_SUPPORTED]: "At least one applicable rule failed. The prediction is not justified by the evidence it carries.",
@@ -383,9 +420,13 @@ async function main() {
     process.exit(EXIT_INVOCATION);
   }
 
-  const { reports, aggregate, parameters } = evaluation;
+  const { reports, aggregate, status, parameters } = evaluation;
 
   if (options.json) {
+    // `check` alone publishes the authoritative disposition. `audit`, `explain` and `status` share
+    // this builder and reach no verdict (ADR 0007), so the omission is active rather than
+    // incidental — and is asserted as an absence in test/aggregate.test.mjs.
+    const verdictBearing = options.command === "check";
     process.stdout.write(
       JSON.stringify(
         {
@@ -394,7 +435,13 @@ async function main() {
           policy: policyPath ? relative(policyPath) : null,
           asOf,
           parameters,
-          records: reports.map((r) => ({ file: relative(r.file), parseError: r.parseError ?? null, ...(r.envelope ?? {}) })),
+          ...(verdictBearing ? { status } : {}),
+          records: reports.map((r) => ({
+            file: relative(r.file),
+            parseError: r.parseError ?? null,
+            // A record that could not be parsed has no envelope, and still has a status.
+            ...(r.envelope ?? { status: r.status }),
+          })),
           aggregate,
         },
         null,
@@ -438,16 +485,26 @@ async function main() {
       out.push(`  ${total} finding(s) across ${reports.length} record(s).`);
       out.push("  This is a survey, not a verdict. Run `check` for the authoritative result.");
     } else {
+      if (options.command === "check") {
+        // The verdict first, then the counts it does not summarise, then the boundary between them.
+        out.push(`  Status:     ${status}`);
+      }
       out.push("  " + Object.entries(aggregate).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${k}`).join(", "));
       const envelopes = reports.map((r) => r.envelope).filter(Boolean);
       if (envelopes.length > 0) {
         out.push("");
         out.push(...renderAssurance(envelopes));
       }
-      const worst = reports.map((r) => r.envelope?.status).filter(Boolean);
+      // Reported whenever a record is blocked, including when the aggregate is NOT_EVALUATED and
+      // therefore does not name it — the counts are not the only place that finding should surface.
+      const worst = reports.map((r) => r.status);
       if (worst.includes(STATUS.BLOCKED_BY_INVARIANT)) {
         out.push("");
         out.push(`  ${STATUS_NOTE[STATUS.BLOCKED_BY_INVARIANT]}`);
+      }
+      if (options.command === "check") {
+        out.push("");
+        for (const line of wrap(AGGREGATE_NOTE)) out.push(`  ${line}`);
       }
     }
     process.stdout.write(out.join("\n") + "\n");

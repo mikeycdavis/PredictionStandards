@@ -33,6 +33,53 @@ export const STATUS = {
   NOT_EVALUATED: "NOT_EVALUATED",
 };
 
+/**
+ * The five statuses ordered worst first, for aggregating a set of records into one disposition
+ * (ADR 0010). The aggregate is the strongest disposition present in the set.
+ *
+ * NOT_EVALUATED leads, which is the one place this order and the obvious one disagree. It is not a
+ * milder verdict than BLOCKED_BY_INVARIANT; it is the absence of a verdict. INSUFFICIENTLY_SUPPORTED
+ * and BLOCKED_BY_INVARIANT are findings, and ranking a finding above a non-finding would publish an
+ * authoritative disposition over records nothing reached. Two existing structures already say this:
+ * the per-record status below tests `!policy` first, and the command exit contract tests
+ * notEvaluated ahead of blocked and routes it to exit 2 rather than exit 1.
+ */
+export const AGGREGATE_PRECEDENCE = [
+  STATUS.NOT_EVALUATED,
+  STATUS.BLOCKED_BY_INVARIANT,
+  STATUS.INSUFFICIENTLY_SUPPORTED,
+  STATUS.SUPPORTED_WITH_EXCEPTIONS,
+  STATUS.SUPPORTED,
+];
+
+/**
+ * One authoritative disposition over a checked set: a fold over per-record statuses and nothing
+ * else. Not the counts, not the scores, not the rule results — a second route to the verdict would
+ * be a second evaluator, and two evaluators drift.
+ *
+ * It is NOT a summary of findings. `SUPPORTED` does not mean every record was clean of everything;
+ * `NOT_EVALUATED` does not mean nothing bad was observed. Subordinate outcomes live in the counts
+ * and the per-record reports, and cannot be inferred from this value in either direction.
+ *
+ * Throws on an empty set rather than returning a value: a set with no records is not a subject that
+ * was hard to evaluate, and any status here would be read as a verdict over something.
+ *
+ * @param statuses per-record statuses, in any order
+ */
+export function aggregateStatus(statuses) {
+  if (!Array.isArray(statuses) || statuses.length === 0) {
+    throw new Error("an aggregate status requires at least one record status");
+  }
+  for (const status of statuses) {
+    // An unrecognised status and a non-passing status are different problems, and guessing here
+    // would report the first as the second.
+    if (!AGGREGATE_PRECEDENCE.includes(status)) {
+      throw new Error(`unknown record status '${status}'`);
+    }
+  }
+  return AGGREGATE_PRECEDENCE.find((candidate) => statuses.includes(candidate));
+}
+
 /** The rule that carries the standards-integrity invariant. Detected manipulations report against it. */
 export const INTEGRITY_RULE = "integrity.no-manipulation";
 
