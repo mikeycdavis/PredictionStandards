@@ -36,6 +36,16 @@ version promises — see `artifacts/release-review/report-envelope-versioning.md
 
 ### Fixed
 
+- **A large `--json` report was truncated in transit.** `scripts/predictions.mjs` wrote the report
+  and then called `process.exit`, which does not wait for a pipe to drain. Over the falsifiability
+  fixture that delivered about 214 KB of a 250 KB document — a well-formed prefix ending mid-string,
+  and a parse error the consumer would have had no reason to attribute to the producer. It was
+  invisible on a Windows console, which flushes synchronously, and reproduced every time in the
+  Linux container the pipeline actually runs in. Every exit now sets `process.exitCode` and returns,
+  which asks for the same status and lets Node finish writing. This is the defect the adapter work
+  made consequential rather than cosmetic: StandardsEnforcer spawns this argv and parses this
+  stream, so a truncated report is the verdict failing to arrive at all.
+
 - **`npm test` could not have run on the Node version CI declares.** The command was
   `node --test "test/*.test.mjs"`; glob patterns in `--test` are resolved by the runner, and that
   support arrived after Node 20. `.github/workflows/ci.yml` pins Node 20 and `engines.node` declares

@@ -365,13 +365,35 @@ function renderAssurance(envelopes) {
   return out;
 }
 
+/**
+ * Leave with a status, without discarding what was written.
+ *
+ * `process.exit()` terminates immediately, and a write to a pipe is not necessarily complete when it
+ * returns — on Linux a large `--json` report is delivered in chunks, so exiting on the next line
+ * truncates it mid-string. `check --json` over a few dozen records is well past that threshold, and
+ * the failure is silent in the worst way: the consumer receives a well-formed prefix of a real
+ * report and a parse error from a document nobody corrupted.
+ *
+ * It stayed hidden because a Windows console flushes synchronously, so the suite was green on the
+ * machine it was written on and truncated in the container the pipeline runs in. Setting `exitCode`
+ * and returning asks for the same exit status and lets Node drain stdout first, which is the
+ * difference between an exit code and an amputation.
+ *
+ * Every caller RETURNS through this. The old calls did not return because they could not be reached
+ * past `process.exit`; that is no longer true, and a missing `return` here would carry on running
+ * after the run had decided it was over.
+ */
+function exitWith(code) {
+  process.exitCode = code;
+}
+
 async function main() {
   let options;
   try {
     options = parseArgs(process.argv.slice(2));
   } catch (error) {
     process.stderr.write(`predictions: ${error.message}\n\n${usage()}\n`);
-    process.exit(EXIT_INVOCATION);
+    return exitWith(EXIT_INVOCATION);
   }
 
   if (options.command === "init") {
@@ -390,7 +412,7 @@ async function main() {
   } catch (error) {
     const detail = error instanceof CatalogError ? `catalog: ${error.message}` : error.message;
     process.stderr.write(`predictions: ${detail}\n`);
-    process.exit(EXIT_INVOCATION);
+    return exitWith(EXIT_INVOCATION);
   }
 
   const policyPath = resolvePolicyPath(options);
@@ -409,7 +431,7 @@ async function main() {
   if (!auditing && policyError) {
     process.stderr.write(`predictions ${options.command}: ${policyError}\n`);
     process.stderr.write("A policy that cannot be read is a configuration fault, not a failing prediction.\n");
-    process.exit(EXIT_INVOCATION);
+    return exitWith(EXIT_INVOCATION);
   }
 
   let evaluation;
@@ -417,7 +439,7 @@ async function main() {
     evaluation = await evaluateAll({ catalog, schema, policy: effectivePolicy, target, asOf });
   } catch (error) {
     process.stderr.write(`predictions ${options.command}: ${error.message}\n`);
-    process.exit(EXIT_INVOCATION);
+    return exitWith(EXIT_INVOCATION);
   }
 
   const { reports, aggregate, status, parameters } = evaluation;
@@ -511,20 +533,20 @@ async function main() {
   }
 
   if (options.command === "audit") {
-    if (!options.strict) process.exit(EXIT_OK);
+    if (!options.strict) return exitWith(EXIT_OK);
     const any = reports.some((r) => !r.envelope || r.envelope.results.some((x) => x.status === "failed"));
-    process.exit(any ? EXIT_FINDINGS : EXIT_OK);
+    return exitWith(any ? EXIT_FINDINGS : EXIT_OK);
   }
 
   if (options.command === "explain" || options.command === "status") {
     // Neither produces a verdict, so neither fails on one. They exit 2 only on configuration
     // faults, which were handled above.
-    process.exit(aggregate.notEvaluated > 0 ? EXIT_INVOCATION : EXIT_OK);
+    return exitWith(aggregate.notEvaluated > 0 ? EXIT_INVOCATION : EXIT_OK);
   }
 
-  if (aggregate.notEvaluated > 0) process.exit(EXIT_INVOCATION);
+  if (aggregate.notEvaluated > 0) return exitWith(EXIT_INVOCATION);
   const bad = aggregate.insufficientlySupported + aggregate.blockedByInvariant;
-  process.exit(bad > 0 ? EXIT_FINDINGS : EXIT_OK);
+  return exitWith(bad > 0 ? EXIT_FINDINGS : EXIT_OK);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

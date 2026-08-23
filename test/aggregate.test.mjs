@@ -48,12 +48,24 @@ const WORST_FIRST = [
 
 const rank = (status) => WORST_FIRST.indexOf(status);
 
+/**
+ * The catch arm returns the error's stdout, which is correct for a non-zero exit and dangerous for
+ * anything else: `ENOBUFS` also arrives as an error carrying a TRUNCATED stdout, and handing that
+ * back would let a prefix of a report be parsed as the report. So the limit is raised past anything
+ * this suite produces, and a buffer overrun is rethrown rather than read.
+ *
+ * This is not what truncated the reports that sent this file red in the container — that was
+ * `process.exit` discarding an unflushed pipe, fixed in scripts/predictions.mjs. It is the same
+ * failure shape one layer up, and it was left closed rather than left as the next thing to find.
+ */
 function run(args, { expectExit } = {}) {
+  const options = { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 };
   try {
-    const stdout = execFileSync(process.execPath, [CLI, ...args], { cwd: ROOT, encoding: "utf8" });
+    const stdout = execFileSync(process.execPath, [CLI, ...args], options);
     if (expectExit !== undefined) assert.equal(0, expectExit, `expected exit ${expectExit}, got 0`);
     return { stdout, status: 0 };
   } catch (error) {
+    if (error.code === "ENOBUFS") throw error;
     if (expectExit !== undefined) assert.equal(error.status, expectExit);
     return { stdout: error.stdout ?? "", stderr: error.stderr ?? "", status: error.status };
   }
