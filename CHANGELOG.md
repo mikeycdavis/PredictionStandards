@@ -33,6 +33,20 @@ version promises — see `artifacts/release-review/report-envelope-versioning.md
 - **`docs/json-output.md`** — the machine-consumer interface, including what the status does *not*
   license: it is not a summary of findings, and a verdict is valid as of an instant rather than as
   of a commit, because exceptions and attestations expire against a clock.
+- **`standards-adapter.json`** — this pack's declaration of how StandardsEnforcer invokes it and
+  reads the answer: `scripts/predictions.mjs check {target} --json`, the five statuses it can
+  publish, and the two it passes on. It binds to the top-level `status` above and to no other field,
+  which is why it could not exist before that key did. Declared at adapter `schemaVersion` 1.0.0:
+  1.1.0 exists and admits a `{policy}` binding, and this pack does not need one — the enforcer
+  proves `<target>/project-policy.yml` exists before invoking anything, and that file is the first
+  candidate this pack's own upward search finds, so the implicit resolution and the explicit binding
+  name the same document. `test/adapter-contract.test.mjs` holds that claim to a run rather than to
+  an argument.
+- **`schemas/vendor/standards-adapter.schema.json`** — StandardsEnforcer's adapter schema, copied
+  byte for byte with its provenance recorded alongside, so this repository's CI can execute the
+  contract it claims to satisfy without a checkout it cannot reach. `scripts/jsonschema.mjs` gained
+  `uniqueItems` and `contains` to run it; without `contains` the requirement that some argument
+  carry `{target}` would have been silently unchecked here and enforced only at the consumer.
 
 ### Fixed
 

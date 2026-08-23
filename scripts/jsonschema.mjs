@@ -1,7 +1,7 @@
 /**
  * A small JSON Schema evaluator covering exactly the keywords used by
- * schemas/project-policy.schema.json and schemas/prediction-record.schema.json, and refusing to run
- * against anything else.
+ * schemas/project-policy.schema.json, schemas/prediction-record.schema.json and the vendored
+ * schemas/vendor/standards-adapter.schema.json, and refusing to run against anything else.
  *
  * The schema files are the single definition of what a valid policy and a valid prediction record
  * are. This module exists so that definition is *executed* rather than restated in hand-written
@@ -12,6 +12,11 @@
  * that silently skips a constraint it does not implement reports PASS for a document it never fully
  * checked, which is the false green this repository exists to prevent. If a future schema adds a
  * keyword, this module fails loudly until someone implements it.
+ *
+ * `uniqueItems` and `contains` were added when this repository began executing StandardsEnforcer's
+ * adapter contract rather than restating it. They are not decoration: `contains` is the keyword that
+ * requires an argument carrying {target}, and without it a contract that never says what to evaluate
+ * would validate cleanly here and be rejected at the enforcer.
  *
  * Inherited from the EngineeringStandards evaluator and extended here with `oneOf` (the prediction
  * record's prediction-vs-abstention discriminated union) and the numeric bounds `minimum`,
@@ -42,16 +47,26 @@ const SUPPORTED = new Set([
   "minLength",
   "items",
   "minItems",
+  "uniqueItems",
+  "contains",
   "format",
   "oneOf",
   "minimum",
   "maximum",
   "exclusiveMinimum",
   "exclusiveMaximum",
+  "$absentByDesign",
 ]);
 
-/** Keywords that carry no constraint we evaluate. */
-const ANNOTATIONS = new Set(["$schema", "$id", "$defs", "title", "description", "format"]);
+/**
+ * Keywords that carry no constraint we evaluate.
+ *
+ * `$absentByDesign` is StandardsEnforcer's own root annotation on the adapter contract, recording
+ * the fields no pack forced. It is prose. It is named here rather than admitted by a `^\$` prefix
+ * rule, because a prefix rule would also admit `$ref` — which is a real constraint, and one this
+ * module implements only for local pointers.
+ */
+const ANNOTATIONS = new Set(["$schema", "$id", "$defs", "title", "description", "format", "$absentByDesign"]);
 
 export class SchemaError extends Error {
   constructor(message) {
@@ -163,6 +178,27 @@ function check(value, schema, root, path, errors) {
     }
     if (schema.items !== undefined) {
       value.forEach((item, i) => check(item, schema.items, root, `${path}[${i}]`, errors));
+    }
+    if (schema.uniqueItems === true) {
+      const seen = new Set();
+      value.forEach((item) => {
+        const key = JSON.stringify(item);
+        if (seen.has(key)) errors.push({ path, message: `contains ${key} more than once` });
+        seen.add(key);
+      });
+    }
+    // `contains` is satisfied by ANY member, so a member's failure is not the array's failure. The
+    // errors from the members are collected into a scratch array and discarded unless every member
+    // failed, which is the only case the array itself is wrong.
+    if (schema.contains !== undefined) {
+      const matched = value.some((item) => {
+        const inner = [];
+        check(item, schema.contains, root, path, inner);
+        return inner.length === 0;
+      });
+      if (!matched) {
+        errors.push({ path, message: `must contain an item matching ${JSON.stringify(schema.contains)}` });
+      }
     }
   }
 
