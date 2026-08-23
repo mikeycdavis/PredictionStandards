@@ -5,7 +5,10 @@
   [ADR 0011](../adr/0011-what-the-report-envelope-version-promises.md) — the envelope version
   describes backward-compatible shape, `status` is additive and earns a minor bump, `"1.0"` becomes
   `"1.1.0"`, and a report schema is required rather than deferred. The four questions below map to
-  its D1/D6, D4, D2/D3 and D3. **Nothing is implemented yet**; the ADR carries the consequences.
+  its D1/D6, D4, D2/D3 and D3. **Accepted and implemented** on 2026-08-23: `schemas/report.schema.json`
+  exists and is executed against real output by `test/report-schema.test.mjs`, both emitters read one
+  `REPORT_SCHEMA_VERSION`, and `policy --json` no longer borrows a version it was never under. The
+  ADR's C10 remains open by design — the release number, the tag and the merge are not decided here.
 - **Deliberately not fixed in:** the ADR 0010 implementation
 
 ## The finding
