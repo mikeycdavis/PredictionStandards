@@ -1,6 +1,6 @@
 # 0011 — What the report envelope's `schemaVersion` promises, and why `status` earns a minor bump
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-23
 - **Deciders:** project owner
 - **Disposes of:** [report-envelope-versioning](../release-review/report-envelope-versioning.md),
