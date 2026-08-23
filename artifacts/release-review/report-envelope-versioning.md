@@ -1,7 +1,11 @@
 # Finding — the report envelope is versioned but has no contract
 
 - **Raised:** 2026-08-16, during the ADR 0010 aggregation cycle
-- **Status:** Open — **disposition required before the next release**
+- **Status:** Dispositioned, 2026-08-23, by
+  [ADR 0011](../adr/0011-what-the-report-envelope-version-promises.md) — the envelope version
+  describes backward-compatible shape, `status` is additive and earns a minor bump, `"1.0"` becomes
+  `"1.1.0"`, and a report schema is required rather than deferred. The four questions below map to
+  its D1/D6, D4, D2/D3 and D3. **Nothing is implemented yet**; the ADR carries the consequences.
 - **Deliberately not fixed in:** the ADR 0010 implementation
 
 ## The finding
