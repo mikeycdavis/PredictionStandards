@@ -115,6 +115,7 @@ integrity.no-manipulation
 - [docs/design/concepts.md](docs/design/concepts.md) — which standards-system concepts were adopted, and the reasoning
 - [docs/architecture.md](docs/architecture.md) — how the pieces fit together
 - [docs/local-ci.md](docs/local-ci.md) — running the full pipeline in Docker, and the verified-PR workflow
+- [docs/json-output.md](docs/json-output.md) — the `--json` report a machine consumer integrates against, and what its status does not tell you
 
 ## Layout
 

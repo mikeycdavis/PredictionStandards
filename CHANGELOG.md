@@ -16,7 +16,23 @@ A test enforces this: weakening a rule silently is the manipulation Standard 18 
 
 ## [Unreleased]
 
-No change to the standards, the rule catalog, or either schema. Repository tooling only.
+No change to the standards, the rule catalog, the prediction-record schema, or the project-policy
+schema. The JSON report envelope did change shape: `check --json` now publishes an authoritative
+top-level `status`. Its `schemaVersion` remains `1.0` pending a separate disposition on what that
+version promises — see `artifacts/release-review/report-envelope-versioning.md`.
+
+### Added
+
+- **An authoritative aggregate status on `check --json`.** The report gained a top-level `status`:
+  one disposition over the whole checked set, folded from the per-record statuses and nothing else.
+  The precedence is `NOT_EVALUATED` > `BLOCKED_BY_INVARIANT` > `INSUFFICIENTLY_SUPPORTED` >
+  `SUPPORTED_WITH_EXCEPTIONS` > `SUPPORTED`. Unknown leads because it is not a milder verdict than
+  blocked but the absence of one, matching the two precedence structures the pack already shipped.
+  Emitted by `check` alone; `audit`, `explain` and `status` reach no verdict and the key is
+  deliberately absent from their output. See `artifacts/adr/0010-the-aggregate-status.md`.
+- **`docs/json-output.md`** — the machine-consumer interface, including what the status does *not*
+  license: it is not a summary of findings, and a verdict is valid as of an instant rather than as
+  of a commit, because exceptions and attestations expire against a clock.
 
 ### Fixed
 

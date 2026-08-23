@@ -60,3 +60,18 @@ Question 3 is the one that surfaced this, and it is the least important of the f
 - **Not a blocker for the adapter contract.** `standards-adapter.json` declares the pack's status
   vocabulary and invocation; it does not reference the envelope version.
 - Nothing here reopens ADR 0010. The aggregation semantics stand on their own.
+
+## Why this is filed here
+
+Because the disposition is due before the next release, and that is what this directory holds.
+
+Correcting the rationale given when it was first committed: that commit message said the backlog
+tracker could not be regenerated from this repository, so an item would have desynchronised a
+generated file "with no path back". The first half is true — there is no `scripts/backlog.mjs` here
+and no `backlog` entry in `package.json` — but the conclusion was wrong. The generator lives in the
+`backlog-validate` skill, and `node ~/.claude/skills/backlog-validate/scripts/backlog.mjs`
+regenerates `artifacts/backlog/README.md` in place. A backlog item was therefore always viable.
+
+The commit message is left unedited rather than rewritten, on the same principle this repository
+applies to superseded documents: it is an accurate record of what was believed at the time, and
+amending it would erase the evidence that a correction happened.
