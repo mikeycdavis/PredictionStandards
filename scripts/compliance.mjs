@@ -25,6 +25,22 @@
 
 import { resolve } from "./catalog.mjs";
 
+/**
+ * The report envelope's version (ADR 0011). It promises backward-compatible SHAPE: a consumer
+ * holding M.m.p may assume every key documented at the same major and any minor at or below m is
+ * present with the documented type and meaning, and may assume nothing about the absence of other
+ * keys. `schemas/report.schema.json` is the definition of "documented", and the two must agree —
+ * test/report-schema.test.mjs checks the constant, the schema's const and the emitted string
+ * three ways, because any two of them agreeing is a coincidence.
+ *
+ * Exported and imported rather than written twice. Until ADR 0011 it was a literal in this file and
+ * another in predictions.mjs, and a version written in two places is two versions.
+ *
+ * Independent of the standards version, the prediction-record schema version and the adapter
+ * schemaVersion. Four streams; a move in one says nothing about the others.
+ */
+export const REPORT_SCHEMA_VERSION = "1.1.0";
+
 export const STATUS = {
   SUPPORTED: "SUPPORTED",
   SUPPORTED_WITH_EXCEPTIONS: "SUPPORTED_WITH_EXCEPTIONS",
@@ -549,8 +565,10 @@ function summarise(results, policy, catalog) {
 }
 
 /**
- * The report envelope. `schemaVersion` versions this format independently of the standards version
- * and the record schema version, so a change to one is never mistaken for a change to another.
+ * The report envelope: one record's outcome, carried inside the `records[]` array of the report
+ * predictions.mjs writes. Its shape is defined by schemas/report.schema.json, under the contract
+ * REPORT_SCHEMA_VERSION names — which is where the independence this docstring used to claim is now
+ * stated, and, since ADR 0011, enforced rather than asserted.
  */
 export function envelope({
   verdict,
@@ -563,7 +581,7 @@ export function envelope({
   frameworkCoverage,
 }) {
   return {
-    schemaVersion: "1.0",
+    schemaVersion: REPORT_SCHEMA_VERSION,
     standardVersion: standardVersion ?? null,
     project: project ?? null,
     record: record ?? null,

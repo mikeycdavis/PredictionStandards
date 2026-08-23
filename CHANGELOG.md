@@ -4,11 +4,16 @@ All notable changes to this repository are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Three version streams evolve independently and are recorded separately below:
+Four version streams evolve independently and are recorded separately below. A move in one says
+nothing about the others, which is why they are listed rather than merged:
 
 - **Standards version** (`VERSION`) — the normative series and the rule catalog.
-- **Report schema version** — the `schemaVersion` field in the evaluation envelope.
+- **Report schema version** — the `schemaVersion` field in the evaluation envelope, defined by
+  `schemas/report.schema.json` and governed by `artifacts/adr/0011-what-the-report-envelope-version-promises.md`.
 - **Record schema version** — the `schemaVersion` field a prediction record declares.
+- **Adapter schemaVersion** — the version of *StandardsEnforcer's* adapter protocol that
+  `standards-adapter.json` conforms to. Owned upstream; this repository declares against it and does
+  not set it.
 
 Any change that weakens a rule's protection attributes (`level`, `nonExemptible`, `severity`) MUST
 appear here naming the rule id, alongside the matching edit to `artifacts/integrity-baseline.json`.
@@ -17,9 +22,8 @@ A test enforces this: weakening a rule silently is the manipulation Standard 18 
 ## [Unreleased]
 
 No change to the standards, the rule catalog, the prediction-record schema, or the project-policy
-schema. The JSON report envelope did change shape: `check --json` now publishes an authoritative
-top-level `status`. Its `schemaVersion` remains `1.0` pending a separate disposition on what that
-version promises — see `artifacts/release-review/report-envelope-versioning.md`.
+schema. The JSON report envelope did change shape, and now has a contract that says what such a
+change means: report schema version `1.0` → `1.1.0`.
 
 ### Added
 
@@ -42,11 +46,53 @@ version promises — see `artifacts/release-review/report-envelope-versioning.md
   candidate this pack's own upward search finds, so the implicit resolution and the explicit binding
   name the same document. `test/adapter-contract.test.mjs` holds that claim to a run rather than to
   an argument.
+- **`schemas/report.schema.json`** — the definition of what a `--json` report *is*, for all four
+  commands that emit one. `additionalProperties: false` at the top level and inside `records[]`,
+  because the schema is what the word "documented" means in the promise above, and a schema that
+  admits undocumented keys cannot serve as one. Validated in CI against real command output rather
+  than a hand-written fixture. Two conditional-presence rules live in `test/report-schema.test.mjs`
+  instead of a `oneOf`: `status` appears exactly when the command is `check`, and a record's
+  fourteen envelope keys appear exactly when it could be parsed. ADR 0008 part 2's reasoning, one
+  level over — a branch per variant duplicates the whole shape and the copies drift.
+
+  The contract stops at those two levels, and says so. `parameters` is defined by
+  `schemas/project-policy.schema.json`, and `records[].results[]` items follow the rule catalog,
+  which moves on the standards' cycle rather than the envelope's; both are typed and not enumerated,
+  so the bump rules do not reach inside them.
 - **`schemas/vendor/standards-adapter.schema.json`** — StandardsEnforcer's adapter schema, copied
   byte for byte with its provenance recorded alongside, so this repository's CI can execute the
   contract it claims to satisfy without a checkout it cannot reach. `scripts/jsonschema.mjs` gained
   `uniqueItems` and `contains` to run it; without `contains` the requirement that some argument
   carry `{target}` would have been silently unchecked here and enforced only at the consumer.
+
+### Changed
+
+- **Report schema version `1.0` → `1.1.0`, and the envelope now has a contract.**
+  `artifacts/adr/0011-what-the-report-envelope-version-promises.md` decides what the version
+  promises: backward-compatible **shape**, stated as a reader contract over documented keys. A
+  consumer holding `M.m.p` may assume every key documented at the same major and any minor at or
+  below `m` is present with its documented type and meaning; it may never assume the *absence* of
+  other keys, and may not read a different major at all.
+
+  **The minor bump** is earned twice. The top level gained `status`, and `records[]` entries changed
+  from *sometimes carrying a status* to *always carrying one* — before ADR 0010 an unreadable record
+  emitted `{file, parseError}` with no status key, so a consumer branching on
+  `!("status" in record)` behaves differently across the two documents. Both are additive and
+  neither breaks a documented key, which is what makes this minor rather than major; compatible is
+  not the same as identical, and a change a consumer could notice is what earns a bump.
+
+  **The move from two-part to three-part** is a one-time grammar correction, taken here because any
+  bump already breaks a consumer testing `version === "1.0"` and it would cost a second
+  incompatibility later. `"1.0"` was also below every floor `atLeastRecordSchema` can compare
+  against — the only version machinery this pack owns could not read its own envelope's version.
+  `1.0.x` keeps meaning exactly what it did mean: the era before the format was defined.
+
+- **`predictions policy --json` no longer carries a `schemaVersion`.** It is a different document —
+  its `status` is `ok`/`findings`/`invalid`, a vocabulary disjoint from the five verdict statuses —
+  and it had been borrowing the report envelope's `"1.0"` for a contract it was never under. The
+  field is removed rather than renumbered: defining a format for this output is a separate decision
+  nobody has taken, and a version naming no contract invites a consumer to gate on a document that
+  answers a different question. A shape change to a document under no promise, recorded here as one.
 
 ### Fixed
 

@@ -37,7 +37,13 @@ import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 
 import { loadCatalog, assertBindings, coverage, CatalogError } from "./catalog.mjs";
-import { evaluate, envelope, aggregateStatus, STATUS } from "./compliance.mjs";
+import {
+  evaluate,
+  envelope,
+  aggregateStatus,
+  REPORT_SCHEMA_VERSION,
+  STATUS,
+} from "./compliance.mjs";
 import { checkPolicy } from "./policy.mjs";
 import {
   EVALUATED_RULES,
@@ -452,7 +458,7 @@ async function main() {
     process.stdout.write(
       JSON.stringify(
         {
-          schemaVersion: "1.0",
+          schemaVersion: REPORT_SCHEMA_VERSION,
           command: options.command,
           policy: policyPath ? relative(policyPath) : null,
           asOf,

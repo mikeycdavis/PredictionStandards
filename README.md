@@ -122,7 +122,7 @@ integrity.no-manipulation
 ```text
 standards/       18 numbered normative documents
 rules/           the rule catalog, one JSON file per category
-schemas/         prediction-record and project-policy schemas
+schemas/         prediction-record, project-policy and report-envelope schemas
 scripts/         the CLI, the invariant checks, and the CI harness; ESM, zero dependencies
 test/            node --test, with fixture records and known-negative policies
 examples/        two records that reach SUPPORTED: one prediction, one abstention

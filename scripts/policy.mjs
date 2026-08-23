@@ -271,7 +271,12 @@ async function main() {
     process.stdout.write(
       JSON.stringify(
         {
-          schemaVersion: "1.0",
+          // No schemaVersion. This is not the report envelope: its `status` is ok|findings|invalid,
+          // a vocabulary disjoint from the five verdict statuses, and until ADR 0011 it borrowed
+          // the envelope's "1.0" for a contract it was never under. A version naming no contract is
+          // worse than no version — it invites a consumer to gate on a document that answers a
+          // different question. Defining a format for this output is a separate decision nobody has
+          // taken.
           policy: relative,
           status: result.status,
           errors: result.errors,

@@ -8,7 +8,7 @@ stated here rather than only in [ADR 0010](../artifacts/adr/0010-the-aggregate-s
 
 ```
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1.0",
   "command":       "check",
   "policy":        "project-policy.yml",       // or null when none was found
   "asOf":          "2026-08-09T12:00:00Z",
@@ -18,6 +18,49 @@ stated here rather than only in [ADR 0010](../artifacts/adr/0010-the-aggregate-s
   "aggregate":     { "supported": 20, "insufficientlySupported": 26, ... }
 }
 ```
+
+## What the version promises
+
+The shape above is defined by [schemas/report.schema.json](../schemas/report.schema.json), and the
+version says what you may rely on across releases. Given `schemaVersion` `M.m.p`:
+
+**You may assume** every key documented at the same major and any minor at or below `m` is present,
+with the documented type and the documented meaning.
+
+**You may not assume** that no *other* key is present. Absence is never promised, and a key that was
+sometimes missing may become always present without a major bump — `records[].status` did exactly
+that in `1.1.0`. Parse tolerantly, and do not treat an unfamiliar key as a malformed document.
+
+**A different major is not partially readable.** Fail closed rather than best-effort a document you
+do not understand.
+
+How the number moves:
+
+| Change | Bump |
+|---|---|
+| A key is added, optional or always present | minor |
+| A sometimes-absent key becomes always present | minor |
+| A documented key is removed, renamed, or retyped | **major** |
+| A documented key keeps its shape and changes its **meaning** | **major** |
+| A sixth `status` value is added | **major** |
+| A new subcommand emits this envelope | minor |
+
+`status`'s five values are a **closed** set: a sixth would make this pack unreadable to every
+StandardsEnforcer holding the current `standards-adapter.json`, which fails closed on a status its
+adapter does not declare. `command`'s values are **open** — do not enumerate them.
+
+**Where the contract stops, deliberately.** `parameters` is defined by
+[schemas/project-policy.schema.json](../schemas/project-policy.schema.json), and the entries of
+`records[].results[]` follow the rule catalog, which moves on the standards' cycle rather than this
+one. Both are typed in the schema and not enumerated, so nothing above governs their keys. Per-rule
+detail is an unversioned surface; read it, but do not build a gate on its shape.
+
+This is the consumer-facing half of
+[ADR 0011](../artifacts/adr/0011-what-the-report-envelope-version-promises.md).
+
+**`predictions policy --json` is not this document.** Its `status` is `ok`/`findings`/`invalid` —
+a different question with a different vocabulary — and it carries no `schemaVersion`, because it is
+under no contract. Never wire it to a gate expecting a verdict.
 
 ## The four channels, and why none substitutes for another
 
