@@ -1,6 +1,6 @@
 {
   "name": "prediction-standards",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Numbered prediction standards, and the command that checks whether an individual prediction is sufficiently supported.",
   "type": "module",
   "bin": {

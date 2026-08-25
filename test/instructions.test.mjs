@@ -175,6 +175,19 @@ test("the version is stated once and agreed everywhere", async () => {
   assert.equal(packageJson.version, version);
   assert.equal(baseline.standardVersion, version);
   assert.ok((await read("CHANGELOG.md")).includes(version), `CHANGELOG.md does not mention ${version}`);
+
+  // The README's own declaration, added after it survived a whole release saying "Version 1.0.0"
+  // while VERSION, package.json and the baseline had all moved to 1.1.0. The three that were checked
+  // agreed with each other; the one that was not checked is the one a reader sees first. An
+  // agreement proof that omits a statement of the same fact is not a proof that the fact is stated
+  // once.
+  //
+  // Matched rather than searched for. `includes(version)` would pass on any README mentioning the
+  // number anywhere — in a changelog link, a code sample, a historical note — and would therefore
+  // have gone green on the stale declaration the moment 1.0.0 appeared in some other sentence.
+  const declared = /^Version (\S+) — see \[VERSION\]\(VERSION\)/mu.exec(await read("README.md"));
+  assert.ok(declared, "the README no longer carries a version declaration in the form this checks");
+  assert.equal(declared[1], version, "the README's version declaration is stale");
 });
 
 test("the coverage the README claims matches what the evaluator actually evaluates", async () => {

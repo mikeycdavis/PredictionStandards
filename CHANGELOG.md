@@ -19,11 +19,35 @@ Any change that weakens a rule's protection attributes (`level`, `nonExemptible`
 appear here naming the rule id, alongside the matching edit to `artifacts/integrity-baseline.json`.
 A test enforces this: weakening a rule silently is the manipulation Standard 18 prohibits.
 
-## [Unreleased]
+## [1.2.0] — 2026-08-23
 
-No change to the standards, the rule catalog, the prediction-record schema, or the project-policy
-schema. The JSON report envelope did change shape, and now has a contract that says what such a
-change means: report schema version `1.0` → `1.1.0`.
+Standards version 1.2.0, report schema **1.1.0**, record schema 1.1.0, adapter schemaVersion 1.0.0.
+
+**The normative catalog is unchanged: 19 standards, 52 rules, and every protection attribute
+(`level`, `nonExemptible`, `severity`) byte-identical to 1.1.0.** No rule was added, removed,
+re-levelled, or made exemptible, so the Standard 18 ratchet is not engaged and no verdict changes for
+an unmodified corpus. The prediction-record schema and the project-policy schema are likewise
+untouched.
+
+**This is a minor release because the pack became interoperable, not because the standards moved.**
+At 1.1.0 this was a pack that could evaluate predictions and print the answer. It is now one an
+external enforcer can invoke, parse, and gate on — which required a published verdict, a declared
+invocation, a defined document, and a delivery path that actually delivers:
+
+- an authoritative aggregate `status` on `check --json`;
+- a total per-record status, so an unreadable record says so in the JSON as well as in the counts;
+- reliable JSON delivery over a Linux pipe, which was silently truncating large reports;
+- `standards-adapter.json`, the declaration StandardsEnforcer reads;
+- the report-envelope contract and `schemas/report.schema.json`, at report schema `1.1.0`;
+- documented `asOf` dependence — a verdict is valid as of an instant, not as of a commit;
+- and the already-merged local Docker CI and verified-submission infrastructure.
+
+The one removal anywhere in the release is `predictions policy --json`'s `schemaVersion`, on an
+output the pack never documented as an interface. See
+[the release candidate review](artifacts/release-review/2026-08-23-release-candidate-review.md) for
+the measured compatibility assessment behind the minor bump, and
+[the standardVersion determination](artifacts/release-review/2026-08-23-policy-standard-version-semantics.md)
+for this repository's re-adoption at 1.2.0.
 
 ### Added
 
@@ -66,6 +90,15 @@ change means: report schema version `1.0` → `1.1.0`.
   carry `{target}` would have been silently unchecked here and enforced only at the consumer.
 
 ### Changed
+
+- **This repository re-adopts the pack at 1.2.0.** `project-policy.yml` and
+  `templates/project-policy.yml` move their `standardVersion` from `1.0.0` — a value left behind
+  through the whole 1.1.0 cycle. Under the meaning the project-policy schema gives the field, *the
+  framework version this project's predictions are evaluated against*, `1.0.0` was not merely stale:
+  `check examples/records` has been evaluating 52 rules including two introduced in 1.1.0 while the
+  envelope reported `1.0.0`. The three frozen policies under `artifacts/adoption/` keep their
+  `1.0.0`, permanently, because that is what those adoptions were actually run against.
+
 
 - **Report schema version `1.0` → `1.1.0`, and the envelope now has a contract.**
   `artifacts/adr/0011-what-the-report-envelope-version-promises.md` decides what the version

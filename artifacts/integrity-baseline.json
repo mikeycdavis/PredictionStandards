@@ -1,7 +1,7 @@
 {
   "$comment": "REVIEWED PROTECTION BASELINE. Records how strongly each rule is enforced: its level, whether it admits an exception, and its severity. scripts/integrity.mjs fails on any drift between this file and the catalog, which means weakening a rule requires editing this file too - a second, deliberate, reviewable act that appears in a diff on its own line. NEVER REGENERATE THIS FILE FROM A RUN. A --write flag would defeat the mechanism entirely, because the first response to a red build would be to run it. Edit by hand and record the reason in CHANGELOG.md naming the rule id. See standards/18-standards-integrity.md.",
   "reviewedOn": "2026-08-09",
-  "standardVersion": "1.1.0",
+  "standardVersion": "1.2.0",
   "$note": "Nine rules carry nonExemptible: true. Those are the ones no policy can waive, downgrade, or declare not-applicable, and a violation of any of them escalates the verdict to BLOCKED_BY_INVARIANT rather than merely failing.",
   "rules": {
     "abstention.first-class-output": {

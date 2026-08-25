@@ -172,5 +172,5 @@ Standards are `standards/NN-<kebab-title>.md`, numbered from 01 with no gaps. Ru
 `category.kebab-case-name`, lower-case throughout — there are no aliases and no second spellings.
 Verdicts and statuses are `SCREAMING_SNAKE`; dispositions are `lower-kebab`.
 
-Version 1.0.0 — see [VERSION](VERSION) and [CHANGELOG.md](CHANGELOG.md). Zero third-party
+Version 1.2.0 — see [VERSION](VERSION) and [CHANGELOG.md](CHANGELOG.md). Zero third-party
 dependencies, and CI has no install step, so adding one breaks the build by design.
