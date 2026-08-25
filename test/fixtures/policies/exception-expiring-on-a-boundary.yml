@@ -1,0 +1,12 @@
+# A single exception that lapses at the end of 2026-08-09, used to make the evaluation DAY
+# observable. `expires < today` is a string comparison over ISO dates, so this exception is active
+# when the run's day is 2026-08-09 and expired when it is 2026-08-10, and the two produce different
+# per-record summaries. test/as-of-normalization.test.mjs uses that difference to prove which day an
+# offset-bearing `--as-of` actually resolved to — a claim no timestamp echoed back could settle.
+standardVersion: "1.2.0"
+exceptions:
+  - rule: baseline.source-stated
+    reason: "boundary probe — this policy exists to date a run, not to waive anything in earnest"
+    approvedBy: "owner"
+    approvedAt: "2025-01-01"
+    expires: "2026-08-09"
