@@ -1,0 +1,27 @@
+{
+  "$comment": [
+    "Where the vendored copy in this directory came from, and why there is a copy at all.",
+    "",
+    "StandardsEnforcer owns the adapter contract and its schema; this pack owns a declaration",
+    "conforming to it. The copy is not a second definition — it is the same bytes, recorded so this",
+    "repository's CI can execute the contract it claims to satisfy. Local CI runs in a container with",
+    "this repository read-only, no network, and no sibling checkout, so a schema reachable only at",
+    "F:/Repos/StandardsEnforcer would make the conformance test unrunnable exactly where it is the",
+    "only assurance available.",
+    "",
+    "WHAT THE COPY DOES AND DOES NOT ESTABLISH. Validating against it proves standards-adapter.json",
+    "conforms to the protocol AS RECORDED AT THE COMMIT BELOW. It cannot prove that commit is still",
+    "current — that is a fact about a repository this one cannot see. test/adapter-contract.test.mjs",
+    "closes the gap wherever the authoritative checkout is reachable: it compares the bytes and fails",
+    "on any difference. Where it is not reachable the freshness check reports itself as unperformed,",
+    "and the conformance check still runs. A skipped freshness check is not a passing one.",
+    "",
+    "Do not edit the schema in place. Re-copy it from the authoritative repository and update the",
+    "commit below in the same edit, so the recorded provenance and the bytes cannot disagree."
+  ],
+  "repository": "StandardsEnforcer",
+  "path": "schemas/standards-adapter.schema.json",
+  "commit": "520117dba65533b3aea9d69dd322a668bdd572a3",
+  "lastChangedIn": "bfb30c4",
+  "copiedOn": "2026-08-23"
+}

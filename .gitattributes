@@ -9,3 +9,11 @@
 
 # Same reasoning: the entrypoint is parsed by a shell inside the image.
 Dockerfile.ci text eol=lf
+
+# Externally produced bytes, copied verbatim from a named producer commit (see
+# schemas/vendor/provenance.json). `-text` disables line-ending translation entirely, so a checkout
+# on a machine with core.autocrlf cannot rewrite bytes this repository did not author.
+# test/adapter-contract.test.mjs compares this file against the authoritative one character for
+# character; without this rule that comparison would fail on Windows and pass on Linux, which is a
+# fact about the developer rather than about the protocol.
+schemas/vendor/*.json  -text

@@ -4,21 +4,161 @@ All notable changes to this repository are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Three version streams evolve independently and are recorded separately below:
+Four version streams evolve independently and are recorded separately below. A move in one says
+nothing about the others, which is why they are listed rather than merged:
 
 - **Standards version** (`VERSION`) — the normative series and the rule catalog.
-- **Report schema version** — the `schemaVersion` field in the evaluation envelope.
+- **Report schema version** — the `schemaVersion` field in the evaluation envelope, defined by
+  `schemas/report.schema.json` and governed by `artifacts/adr/0011-what-the-report-envelope-version-promises.md`.
 - **Record schema version** — the `schemaVersion` field a prediction record declares.
+- **Adapter schemaVersion** — the version of *StandardsEnforcer's* adapter protocol that
+  `standards-adapter.json` conforms to. Owned upstream; this repository declares against it and does
+  not set it.
 
 Any change that weakens a rule's protection attributes (`level`, `nonExemptible`, `severity`) MUST
 appear here naming the rule id, alongside the matching edit to `artifacts/integrity-baseline.json`.
 A test enforces this: weakening a rule silently is the manipulation Standard 18 prohibits.
 
-## [Unreleased]
+## [1.2.0] — 2026-08-25
 
-No change to the standards, the rule catalog, or either schema. Repository tooling only.
+Standards version 1.2.0, report schema **1.1.0**, record schema 1.1.0, adapter schemaVersion 1.0.0.
+
+**The normative catalog is unchanged: 19 standards, 52 rules, and every protection attribute
+(`level`, `nonExemptible`, `severity`) byte-identical to 1.1.0.** No rule was added, removed,
+re-levelled, or made exemptible, so the Standard 18 ratchet is not engaged and no verdict changes for
+an unmodified corpus. The prediction-record schema and the project-policy schema are likewise
+untouched.
+
+**This is a minor release because the pack became interoperable, not because the standards moved.**
+At 1.1.0 this was a pack that could evaluate predictions and print the answer. It is now one an
+external enforcer can invoke, parse, and gate on — which required a published verdict, a declared
+invocation, a defined document, and a delivery path that actually delivers:
+
+- an authoritative aggregate `status` on `check --json`;
+- a total per-record status, so an unreadable record says so in the JSON as well as in the counts;
+- reliable JSON delivery over a Linux pipe, which was silently truncating large reports;
+- `standards-adapter.json`, the declaration StandardsEnforcer reads;
+- the report-envelope contract and `schemas/report.schema.json`, at report schema `1.1.0`;
+- documented `asOf` dependence — a verdict is valid as of an instant, not as of a commit;
+- and the already-merged local Docker CI and verified-submission infrastructure.
+
+The one removal anywhere in the release is `predictions policy --json`'s `schemaVersion`, on an
+output the pack never documented as an interface. See
+[the release candidate review](artifacts/release-review/2026-08-23-release-candidate-review.md) for
+the measured compatibility assessment behind the minor bump, and
+[the standardVersion determination](artifacts/release-review/2026-08-25-policy-standard-version-semantics.md)
+for this repository's re-adoption at 1.2.0.
+
+### Added
+
+- **An authoritative aggregate status on `check --json`.** The report gained a top-level `status`:
+  one disposition over the whole checked set, folded from the per-record statuses and nothing else.
+  The precedence is `NOT_EVALUATED` > `BLOCKED_BY_INVARIANT` > `INSUFFICIENTLY_SUPPORTED` >
+  `SUPPORTED_WITH_EXCEPTIONS` > `SUPPORTED`. Unknown leads because it is not a milder verdict than
+  blocked but the absence of one, matching the two precedence structures the pack already shipped.
+  Emitted by `check` alone; `audit`, `explain` and `status` reach no verdict and the key is
+  deliberately absent from their output. See `artifacts/adr/0010-the-aggregate-status.md`.
+- **`docs/json-output.md`** — the machine-consumer interface, including what the status does *not*
+  license: it is not a summary of findings, and a verdict is valid as of an instant rather than as
+  of a commit, because exceptions and attestations expire against a clock.
+- **`standards-adapter.json`** — this pack's declaration of how StandardsEnforcer invokes it and
+  reads the answer: `scripts/predictions.mjs check {target} --json`, the five statuses it can
+  publish, and the two it passes on. It binds to the top-level `status` above and to no other field,
+  which is why it could not exist before that key did. Declared at adapter `schemaVersion` 1.0.0:
+  1.1.0 exists and admits a `{policy}` binding, and this pack does not need one — the enforcer
+  proves `<target>/project-policy.yml` exists before invoking anything, and that file is the first
+  candidate this pack's own upward search finds, so the implicit resolution and the explicit binding
+  name the same document. `test/adapter-contract.test.mjs` holds that claim to a run rather than to
+  an argument.
+- **`schemas/report.schema.json`** — the definition of what a `--json` report *is*, for all four
+  commands that emit one. `additionalProperties: false` at the top level and inside `records[]`,
+  because the schema is what the word "documented" means in the promise above, and a schema that
+  admits undocumented keys cannot serve as one. Validated in CI against real command output rather
+  than a hand-written fixture. Two conditional-presence rules live in `test/report-schema.test.mjs`
+  instead of a `oneOf`: `status` appears exactly when the command is `check`, and a record's
+  fourteen envelope keys appear exactly when it could be parsed. ADR 0008 part 2's reasoning, one
+  level over — a branch per variant duplicates the whole shape and the copies drift.
+
+  The contract stops at those two levels, and says so. `parameters` is defined by
+  `schemas/project-policy.schema.json`, and `records[].results[]` items follow the rule catalog,
+  which moves on the standards' cycle rather than the envelope's; both are typed and not enumerated,
+  so the bump rules do not reach inside them.
+- **`schemas/vendor/standards-adapter.schema.json`** — StandardsEnforcer's adapter schema, copied
+  byte for byte with its provenance recorded alongside, so this repository's CI can execute the
+  contract it claims to satisfy without a checkout it cannot reach. `scripts/jsonschema.mjs` gained
+  `uniqueItems` and `contains` to run it; without `contains` the requirement that some argument
+  carry `{target}` would have been silently unchecked here and enforced only at the consumer.
+
+### Changed
+
+- **This repository re-adopts the pack at 1.2.0.** `project-policy.yml` and
+  `templates/project-policy.yml` move their `standardVersion` from `1.0.0` — a value left behind
+  through the whole 1.1.0 cycle. Under the meaning the project-policy schema gives the field, *the
+  framework version this project's predictions are evaluated against*, `1.0.0` was not merely stale:
+  `check examples/records` has been evaluating 52 rules including two introduced in 1.1.0 while the
+  envelope reported `1.0.0`. The three frozen policies under `artifacts/adoption/` keep their
+  `1.0.0`, permanently, because that is what those adoptions were actually run against.
+
+
+- **Report schema version `1.0` → `1.1.0`, and the envelope now has a contract.**
+  `artifacts/adr/0011-what-the-report-envelope-version-promises.md` decides what the version
+  promises: backward-compatible **shape**, stated as a reader contract over documented keys. A
+  consumer holding `M.m.p` may assume every key documented at the same major and any minor at or
+  below `m` is present with its documented type and meaning; it may never assume the *absence* of
+  other keys, and may not read a different major at all.
+
+  **The minor bump** is earned twice. The top level gained `status`, and `records[]` entries changed
+  from *sometimes carrying a status* to *always carrying one* — before ADR 0010 an unreadable record
+  emitted `{file, parseError}` with no status key, so a consumer branching on
+  `!("status" in record)` behaves differently across the two documents. Both are additive and
+  neither breaks a documented key, which is what makes this minor rather than major; compatible is
+  not the same as identical, and a change a consumer could notice is what earns a bump.
+
+  **The move from two-part to three-part** is a one-time grammar correction, taken here because any
+  bump already breaks a consumer testing `version === "1.0"` and it would cost a second
+  incompatibility later. `"1.0"` was also below every floor `atLeastRecordSchema` can compare
+  against — the only version machinery this pack owns could not read its own envelope's version.
+  `1.0.x` keeps meaning exactly what it did mean: the era before the format was defined.
+
+- **`predictions policy --json` no longer carries a `schemaVersion`.** It is a different document —
+  its `status` is `ok`/`findings`/`invalid`, a vocabulary disjoint from the five verdict statuses —
+  and it had been borrowing the report envelope's `"1.0"` for a contract it was never under. The
+  field is removed rather than renumbered: defining a format for this output is a separate decision
+  nobody has taken, and a version naming no contract invites a consumer to gate on a document that
+  answers a different question. A shape change to a document under no promise, recorded here as one.
 
 ### Fixed
+
+- **A verdict could depend on how its instant was spelled.** `--as-of` accepted anything
+  `Date.parse` understood and carried the caller's TEXT through to evaluation. Record staleness
+  converts with `ms()` and was always offset-correct, but the evaluation day is taken positionally —
+  `asOf.slice(0, 10)` — and handed to exception and attestation expiry, which compare ISO dates as
+  strings. So `--as-of=2026-08-09T23:00:00-05:00` dated a run to 2026-08-09 when the instant is
+  2026-08-10T04:00Z, and an exception lapsing that night was honoured for a run that happened after
+  it lapsed. The same moment, spelled two ways, produced two different verdicts.
+
+  The same text was echoed into `asOf` and every record's `evaluatedAt`, where the newly published
+  `schemas/report.schema.json` admits only the `Z` form — so an accepted invocation produced a
+  report that failed the schema this release publishes. That half was reported by an automated
+  review of the release candidate; the day defect was found underneath it and predates the schema
+  entirely.
+
+  `--as-of` is now normalised on accept with `new Date(value).toISOString()`, at the single point
+  the text enters. Both invariants are restored for every downstream reader at once, and the set of
+  accepted invocations is unchanged — rejecting offsets would have been a break to fix something a
+  conversion handles, and widening the schema would have silenced the validator while leaving the
+  day wrong. One visible consequence: an `--as-of` given to whole seconds now echoes with explicit
+  milliseconds, which is the form the default path has always emitted.
+
+- **A large `--json` report was truncated in transit.** `scripts/predictions.mjs` wrote the report
+  and then called `process.exit`, which does not wait for a pipe to drain. Over the falsifiability
+  fixture that delivered about 214 KB of a 250 KB document — a well-formed prefix ending mid-string,
+  and a parse error the consumer would have had no reason to attribute to the producer. It was
+  invisible on a Windows console, which flushes synchronously, and reproduced every time in the
+  Linux container the pipeline actually runs in. Every exit now sets `process.exitCode` and returns,
+  which asks for the same status and lets Node finish writing. This is the defect the adapter work
+  made consequential rather than cosmetic: StandardsEnforcer spawns this argv and parses this
+  stream, so a truncated report is the verdict failing to arrive at all.
 
 - **`npm test` could not have run on the Node version CI declares.** The command was
   `node --test "test/*.test.mjs"`; glob patterns in `--test` are resolved by the runner, and that

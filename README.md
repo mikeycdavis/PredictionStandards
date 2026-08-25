@@ -115,13 +115,14 @@ integrity.no-manipulation
 - [docs/design/concepts.md](docs/design/concepts.md) — which standards-system concepts were adopted, and the reasoning
 - [docs/architecture.md](docs/architecture.md) — how the pieces fit together
 - [docs/local-ci.md](docs/local-ci.md) — running the full pipeline in Docker, and the verified-PR workflow
+- [docs/json-output.md](docs/json-output.md) — the `--json` report a machine consumer integrates against, and what its status does not tell you
 
 ## Layout
 
 ```text
 standards/       18 numbered normative documents
 rules/           the rule catalog, one JSON file per category
-schemas/         prediction-record and project-policy schemas
+schemas/         prediction-record, project-policy and report-envelope schemas
 scripts/         the CLI, the invariant checks, and the CI harness; ESM, zero dependencies
 test/            node --test, with fixture records and known-negative policies
 examples/        two records that reach SUPPORTED: one prediction, one abstention
@@ -171,5 +172,5 @@ Standards are `standards/NN-<kebab-title>.md`, numbered from 01 with no gaps. Ru
 `category.kebab-case-name`, lower-case throughout — there are no aliases and no second spellings.
 Verdicts and statuses are `SCREAMING_SNAKE`; dispositions are `lower-kebab`.
 
-Version 1.0.0 — see [VERSION](VERSION) and [CHANGELOG.md](CHANGELOG.md). Zero third-party
+Version 1.2.0 — see [VERSION](VERSION) and [CHANGELOG.md](CHANGELOG.md). Zero third-party
 dependencies, and CI has no install step, so adding one breaks the build by design.

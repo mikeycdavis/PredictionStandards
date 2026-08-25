@@ -1,0 +1,28 @@
+{
+  "$schema": "https://standards-enforcer/schemas/standards-adapter.schema.json",
+  "schemaVersion": "1.0.0",
+  "standard": {
+    "id": "prediction"
+  },
+  "evaluation": {
+    "entrypoint": "scripts/predictions.mjs",
+    "arguments": [
+      "check",
+      "{target}",
+      "--json"
+    ]
+  },
+  "result": {
+    "statuses": [
+      "SUPPORTED",
+      "SUPPORTED_WITH_EXCEPTIONS",
+      "INSUFFICIENTLY_SUPPORTED",
+      "BLOCKED_BY_INVARIANT",
+      "NOT_EVALUATED"
+    ],
+    "passing": [
+      "SUPPORTED",
+      "SUPPORTED_WITH_EXCEPTIONS"
+    ]
+  }
+}

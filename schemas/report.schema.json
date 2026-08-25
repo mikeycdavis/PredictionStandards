@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PredictionStandards/schemas/report.schema.json",
+  "title": "Prediction Standards report envelope",
+  "description": "The document `predictions check|audit|explain|status --json` writes to stdout. This file IS the definition of \"documented key\" that ADR 0011 rests on: a consumer holding schemaVersion M.m.p may assume every key documented at the same major and any minor at or below m is present with the documented type and meaning, and may assume nothing about the absence of other keys. `additionalProperties` is false at the two levels this contract covers — the top-level document and the entries of `records[]` — because a schema that admits undocumented keys cannot serve as a definition of which keys are documented. Below those two levels the contract stops, deliberately and visibly: `parameters` is defined by project-policy.schema.json, and `records[].results[]` items are the rule catalog's surface rather than the envelope's. Those are typed here and not enumerated, and ADR 0011's bump table therefore does not govern them. `predictions policy --json` is NOT this document; it has a disjoint `status` vocabulary (ok/findings/invalid) and no contract of its own.",
+  "type": "object",
+  "required": ["schemaVersion", "command", "policy", "asOf", "parameters", "records", "aggregate"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "description": "The report envelope version, independent of the standards version, the prediction-record schema version and the adapter schemaVersion. Four streams; a move in one says nothing about the others.",
+      "const": "1.1.0"
+    },
+    "command": {
+      "description": "Which subcommand produced this report. Deliberately not an enum: ADR 0011 D7 declares this value set OPEN, so a future subcommand emitting this envelope is a minor change, and a consumer was never entitled to enumerate it.",
+      "type": "string",
+      "minLength": 1
+    },
+    "policy": {
+      "description": "The project policy this report was evaluated under, relative to the invocation, or null when none was found.",
+      "type": ["string", "null"]
+    },
+    "asOf": {
+      "description": "The instant every staleness and expiry comparison ran against. A verdict is valid as of an instant, not as of a commit.",
+      "$ref": "#/$defs/instant"
+    },
+    "parameters": {
+      "$ref": "#/$defs/parameters"
+    },
+    "status": {
+      "description": "The single authoritative disposition over the checked set (ADR 0010). Present exactly when `command` is \"check\"; `audit`, `explain` and `status` reach no verdict by design. That conditional presence is asserted by a test rather than by a `oneOf` discriminated on `command` — ADR 0008 part 2's reasoning, applied per command instead of per version: a branch per variant duplicates the whole shape, and the copies drift. The value set is CLOSED (ADR 0011 D7); adding a sixth member is a major change, because StandardsEnforcer fails closed on a status its adapter does not declare.",
+      "$ref": "#/$defs/status"
+    },
+    "records": {
+      "description": "One entry per record found under the target, in the order they were loaded.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/record" }
+    },
+    "aggregate": {
+      "description": "How many records landed in each disposition. Not the verdict: `aggregate` and `status` answer different questions, and neither substitutes for the other.",
+      "type": "object",
+      "required": [
+        "supported",
+        "supportedWithExceptions",
+        "insufficientlySupported",
+        "blockedByInvariant",
+        "notEvaluated"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "supported": { "$ref": "#/$defs/count" },
+        "supportedWithExceptions": { "$ref": "#/$defs/count" },
+        "insufficientlySupported": { "$ref": "#/$defs/count" },
+        "blockedByInvariant": { "$ref": "#/$defs/count" },
+        "notEvaluated": { "$ref": "#/$defs/count" }
+      }
+    }
+  },
+  "$defs": {
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "instant": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "SUPPORTED",
+        "SUPPORTED_WITH_EXCEPTIONS",
+        "INSUFFICIENTLY_SUPPORTED",
+        "BLOCKED_BY_INVARIANT",
+        "NOT_EVALUATED"
+      ]
+    },
+    "parameters": {
+      "description": "The thresholds this evaluation ran under, published because a verdict depending on a materiality threshold nobody can see is a verdict nobody can check. Its keys are defined by schemas/project-policy.schema.json, which is where a policy author is governed; enumerating them a second time here would be two definitions of one thing.",
+      "type": "object"
+    },
+    "record": {
+      "description": "One record's outcome. Three keys are always present, whatever happened to the file. The remaining fourteen come from the per-record envelope and are present exactly when `parseError` is null — a record that could not be read produced no envelope, and still produced a status. That conditional presence is asserted by a test rather than by a `oneOf`, for the same reason as the top-level `status`.",
+      "type": "object",
+      "required": ["file", "parseError", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "description": "The record's path relative to the invocation.",
+          "type": "string",
+          "minLength": 1
+        },
+        "parseError": {
+          "description": "Why the record could not be read, or null when it was read. Never a verdict: an unreadable record is NOT_EVALUATED, which is the absence of a finding rather than a mild one.",
+          "type": ["string", "null"]
+        },
+        "status": {
+          "description": "This record's disposition. Always present since ADR 0010 — before it, a parse-error entry carried no status at all, and that change is half of why the envelope earned a minor bump.",
+          "$ref": "#/$defs/status"
+        },
+        "schemaVersion": {
+          "description": "The same envelope version as the enclosing report, and the same contract. One version written in two places is two versions, so both emitters read one constant.",
+          "const": "1.1.0"
+        },
+        "standardVersion": { "type": ["string", "null"] },
+        "project": { "type": ["string", "null"] },
+        "record": {
+          "description": "The record's declared id, or null when it declared none.",
+          "type": ["string", "null"]
+        },
+        "score": {
+          "description": "Percentage of scored rules that passed, or null when nothing was scored. Never a proxy for the status.",
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "summary": {
+          "type": "object",
+          "required": ["passed", "failed", "warnings", "skipped"],
+          "additionalProperties": false,
+          "properties": {
+            "passed": { "$ref": "#/$defs/count" },
+            "failed": { "$ref": "#/$defs/count" },
+            "warnings": { "$ref": "#/$defs/count" },
+            "skipped": { "$ref": "#/$defs/count" }
+          }
+        },
+        "assurance": {
+          "description": "How each applicable rule was established. A rule nothing evaluated is counted in `notEvaluated`, never as a pass — the oldest commitment in this pack, and the reason SUPPORTED does not imply every applicable rule passed.",
+          "type": "object",
+          "required": ["automated", "manualReview", "notEvaluated"],
+          "additionalProperties": false,
+          "properties": {
+            "automated": { "$ref": "#/$defs/count" },
+            "manualReview": { "$ref": "#/$defs/count" },
+            "notEvaluated": { "$ref": "#/$defs/count" }
+          }
+        },
+        "blockedBy": {
+          "description": "The rule ids of the non-exemptible failures that blocked this record. Empty when none did.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "denominator": {
+          "description": "What the score was computed over, published so the score can be checked rather than trusted.",
+          "type": "object",
+          "required": ["total", "applicable", "scored", "basis"],
+          "additionalProperties": false,
+          "properties": {
+            "total": { "$ref": "#/$defs/count" },
+            "applicable": { "$ref": "#/$defs/count" },
+            "scored": { "$ref": "#/$defs/count" },
+            "basis": { "type": "string", "minLength": 1 }
+          }
+        },
+        "parameters": { "$ref": "#/$defs/parameters" },
+        "frameworkCoverage": {
+          "description": "Framework maturity: how much of the framework has been turned into evaluated rules. Never how well supported this prediction is. Combining the two would let a coverage improvement look like a support improvement.",
+          "type": ["object", "null"],
+          "required": [
+            "cataloguedRules",
+            "evaluatedRules",
+            "standards",
+            "standardsWithRules",
+            "fullyMachineRepresentedStandards",
+            "note"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cataloguedRules": { "$ref": "#/$defs/count" },
+            "evaluatedRules": { "$ref": "#/$defs/count" },
+            "standards": { "type": ["integer", "null"], "minimum": 0 },
+            "standardsWithRules": { "$ref": "#/$defs/count" },
+            "fullyMachineRepresentedStandards": { "$ref": "#/$defs/count" },
+            "note": { "type": "string", "minLength": 1 }
+          }
+        },
+        "evaluatedAt": { "$ref": "#/$defs/instant" },
+        "asOf": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+        },
+        "results": {
+          "description": "One entry per rule considered. WHERE THIS CONTRACT STOPS. The entries are typed and not enumerated, so ADR 0011's promise and its bump table do not reach inside them: a result entry's keys follow the rule catalog, which moves on the standards' cycle rather than the envelope's, and a schema claiming otherwise would either freeze the catalog or quietly lie. A consumer needing per-rule detail is reading an unversioned surface and should be told so — see docs/json-output.md.",
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    }
+  }
+}
