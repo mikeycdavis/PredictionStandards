@@ -1,6 +1,6 @@
 # What `project-policy.yml`'s `standardVersion` means, and this repository's re-adoption
 
-- **Determined:** 2026-08-23, during 1.2.0 release preparation
+- **Determined:** 2026-08-25, during 1.2.0 release preparation
 - **Disposes of:** §5.2 of the
   [release candidate review](./2026-08-23-release-candidate-review.md) — `project-policy.yml`
   declares `standardVersion: "1.0.0"` while the pack is at `1.1.0`

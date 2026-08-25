@@ -19,7 +19,7 @@ Any change that weakens a rule's protection attributes (`level`, `nonExemptible`
 appear here naming the rule id, alongside the matching edit to `artifacts/integrity-baseline.json`.
 A test enforces this: weakening a rule silently is the manipulation Standard 18 prohibits.
 
-## [1.2.0] — 2026-08-23
+## [1.2.0] — 2026-08-25
 
 Standards version 1.2.0, report schema **1.1.0**, record schema 1.1.0, adapter schemaVersion 1.0.0.
 
@@ -46,7 +46,7 @@ The one removal anywhere in the release is `predictions policy --json`'s `schema
 output the pack never documented as an interface. See
 [the release candidate review](artifacts/release-review/2026-08-23-release-candidate-review.md) for
 the measured compatibility assessment behind the minor bump, and
-[the standardVersion determination](artifacts/release-review/2026-08-23-policy-standard-version-semantics.md)
+[the standardVersion determination](artifacts/release-review/2026-08-25-policy-standard-version-semantics.md)
 for this repository's re-adoption at 1.2.0.
 
 ### Added
