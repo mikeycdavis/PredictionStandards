@@ -13,7 +13,7 @@
 # None of them works on a non-exemptible rule. Nine rules are non-exemptible; an attempt to waive,
 # downgrade, or reclassify one is reported as an integrity violation and blocks the work.
 
-standardVersion: "1.0.0"
+standardVersion: "1.2.0"
 project: "your-project-name"
 
 parameters:

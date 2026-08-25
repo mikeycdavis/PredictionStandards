@@ -14,7 +14,7 @@
 # Collapsing any two of them would let "we looked and it is fine" and "we did not look" produce the
 # same output, which is the failure this repository exists to prevent.
 
-standardVersion: "1.0.0"
+standardVersion: "1.2.0"
 project: "PredictionStandards"
 
 # Thresholds this project evaluates its example records against. None of these numbers comes from the
