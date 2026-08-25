@@ -339,7 +339,13 @@ test("the envelope carries the asOf its verdict is valid as of", () => {
   // verdict was reached has to travel with it.
   const { stdout } = run(["check", CLEAN, `--as-of=${AS_OF}`, "--json"], { expectExit: 1 });
   const json = JSON.parse(stdout);
-  assert.equal(json.asOf, AS_OF);
+  // Compared as an INSTANT rather than as text. `--as-of` is normalised on accept, so a bare-second
+  // argument comes back with explicit milliseconds — the same form the default path has always
+  // emitted, since it comes from `new Date().toISOString()`. What this test is about is that the
+  // instant travels with the verdict, and asserting the spelling instead would fail the next time
+  // the canonical form is made more precise, for no gain. test/as-of-normalization.test.mjs owns
+  // the spelling.
+  assert.equal(Date.parse(json.asOf), Date.parse(AS_OF), "the envelope's asOf is a different instant");
   assert.ok("status" in json && "asOf" in json, "a retained verdict needs both");
 });
 

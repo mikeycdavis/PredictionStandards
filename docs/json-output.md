@@ -139,6 +139,12 @@ It is:
 If you retain a verdict, retain `asOf` beside it, and do not key it on commit SHA alone. Pass
 `--as-of=<ISO>` to make a run reproducible.
 
+`--as-of` is **normalised on accept**: any instant `Date.parse` understands is converted to UTC with
+`new Date(value).toISOString()` before anything reads it. An offset-bearing argument is therefore
+accepted and evaluated as the instant it names, not as the day its text begins with, and the value
+echoed back is always the canonical `Z` form the schema pins. Equivalent instants spelled
+differently produce identical reports, byte for byte.
+
 ## No status without records
 
 An empty target is a configuration fault, not a domain result: the command exits 2 and writes **no

@@ -129,6 +129,27 @@ for this repository's re-adoption at 1.2.0.
 
 ### Fixed
 
+- **A verdict could depend on how its instant was spelled.** `--as-of` accepted anything
+  `Date.parse` understood and carried the caller's TEXT through to evaluation. Record staleness
+  converts with `ms()` and was always offset-correct, but the evaluation day is taken positionally —
+  `asOf.slice(0, 10)` — and handed to exception and attestation expiry, which compare ISO dates as
+  strings. So `--as-of=2026-08-09T23:00:00-05:00` dated a run to 2026-08-09 when the instant is
+  2026-08-10T04:00Z, and an exception lapsing that night was honoured for a run that happened after
+  it lapsed. The same moment, spelled two ways, produced two different verdicts.
+
+  The same text was echoed into `asOf` and every record's `evaluatedAt`, where the newly published
+  `schemas/report.schema.json` admits only the `Z` form — so an accepted invocation produced a
+  report that failed the schema this release publishes. That half was reported by an automated
+  review of the release candidate; the day defect was found underneath it and predates the schema
+  entirely.
+
+  `--as-of` is now normalised on accept with `new Date(value).toISOString()`, at the single point
+  the text enters. Both invariants are restored for every downstream reader at once, and the set of
+  accepted invocations is unchanged — rejecting offsets would have been a break to fix something a
+  conversion handles, and widening the schema would have silenced the validator while leaving the
+  day wrong. One visible consequence: an `--as-of` given to whole seconds now echoes with explicit
+  milliseconds, which is the form the default path has always emitted.
+
 - **A large `--json` report was truncated in transit.** `scripts/predictions.mjs` wrote the report
   and then called `process.exit`, which does not wait for a pipe to drain. Over the falsifiability
   fixture that delivered about 214 KB of a 250 KB document — a well-formed prefix ending mid-string,

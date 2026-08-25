@@ -123,8 +123,28 @@ function parseArgs(argv) {
     // would make the verdict's meaning depend on a flag.
     throw new Error("--strict applies to audit only");
   }
-  if (options.asOf !== null && !Number.isFinite(Date.parse(options.asOf))) {
-    throw new Error(`--as-of='${options.asOf}' is not a parseable instant`);
+  if (options.asOf !== null) {
+    if (!Number.isFinite(Date.parse(options.asOf))) {
+      throw new Error(`--as-of='${options.asOf}' is not a parseable instant`);
+    }
+    // Normalise on accept, at the one point the caller's text enters the program.
+    //
+    // Everything downstream reads this value two different ways, and only one of them was ever
+    // offset-correct. Staleness converts with `ms()`, so it always meant the instant. The evaluation
+    // DAY is `asOf.slice(0, 10)`, which means whatever the text happens to say in its first ten
+    // characters — so `2026-08-09T23:00:00-05:00` dated a run to 2026-08-09 when the instant is
+    // 2026-08-10T04:00Z, and an exception that lapsed that night was honoured after it lapsed. The
+    // same text was also echoed into `asOf` and every record's `evaluatedAt`, where
+    // schemas/report.schema.json admits only the `Z` form.
+    //
+    // Converting here fixes both, for every reader at once, instead of at each site that remembers
+    // to call `ms()` — and it changes nothing about WHICH invocations are accepted. Rejecting
+    // offsets would have been a break to fix something a conversion handles; widening the schema
+    // would have silenced the validator and left the day wrong.
+    //
+    // It runs AFTER the parseability check and not before. `new Date("nonsense").toISOString()`
+    // throws a RangeError, which would surface as a crash rather than as the refusal above.
+    options.asOf = new Date(options.asOf).toISOString();
   }
   return options;
 }
