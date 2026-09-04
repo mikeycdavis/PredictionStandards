@@ -5,19 +5,19 @@
 Work on this project classified with the Extended Agile Hierarchy. Every item is a file in
 [`items/`](./items/); its YAML frontmatter is the source of truth and this page is derived from it.
 
-**25 of 26 leaf items complete — 96%**
+**26 of 26 leaf items complete — 100%**
 
 ```
-██████████████████████████████████████░░  96%
+████████████████████████████████████████  100%
 ```
 
 ## Status
 
 | Status | Items |
 | --- | ---: |
-| ◔ Ready | 4 |
+| ◔ Ready | 2 |
 | ◑ In progress | 1 |
-| ● Complete | 48 |
+| ● Complete | 50 |
 | **Total** | **53** |
 
 ## The hierarchy
@@ -35,7 +35,7 @@ Work on this project classified with the Extended Agile Hierarchy. Every item is
 
 | Theme | Progress | Done | Remaining |
 | --- | --- | ---: | ---: |
-| [TH-01 Prediction quality governance](./items/TH-01.md) | `█████████████░` 96% | 25 | 1 |
+| [TH-01 Prediction quality governance](./items/TH-01.md) | `██████████████` 100% | 26 | 0 |
 
 ## In flight
 
@@ -44,13 +44,11 @@ Work on this project classified with the Extended Agile Hierarchy. Every item is
 ## Ready to pick up
 
 - ◔ [EP-07](./items/EP-07.md) — The version a policy declares, established rather than echoed
-- ◔ [FE-14](./items/FE-14.md) — Version-resolution semantics, decided before implementation
 - ◔ [IN-05](./items/IN-05.md) — Framework version resolution
-- ◔ [ST-26](./items/ST-26.md) — Determine version-resolution semantics and their falsifiers
 
 ## Everything
 
-- ◑ **[TH-01](./items/TH-01.md)** Prediction quality governance _(25/26)_
+- ◑ **[TH-01](./items/TH-01.md)** Prediction quality governance _(26/26)_
   - ● **[IN-01](./items/IN-01.md)** A self-enforcing prediction standards pack _(1/1)_
     - ● **[EP-01](./items/EP-01.md)** The v1.0.0 standards system _(1/1)_
       - ● **[FE-01](./items/FE-01.md)** Standards catalog, rules, and evaluator _(1/1)_
@@ -99,8 +97,8 @@ Work on this project classified with the Extended Agile Hierarchy. Every item is
         - ● **[ST-24](./items/ST-24.md)** An accepted instant that broke the schema, and a verdict that depended on spelling
       - ● **[FE-13](./items/FE-13.md)** Freeze, verify from main, and tag v1.2.0 _(1/1)_
         - ● **[ST-25](./items/ST-25.md)** Freeze, verify from main, and tag v1.2.0
-  - ◔ **[IN-05](./items/IN-05.md)** Framework version resolution _(0/1)_
-    - ◔ **[EP-07](./items/EP-07.md)** The version a policy declares, established rather than echoed _(0/1)_
-      - ◔ **[FE-14](./items/FE-14.md)** Version-resolution semantics, decided before implementation _(0/1)_
-        - ◔ **[ST-26](./items/ST-26.md)** Determine version-resolution semantics and their falsifiers
+  - ◔ **[IN-05](./items/IN-05.md)** Framework version resolution _(1/1)_
+    - ◔ **[EP-07](./items/EP-07.md)** The version a policy declares, established rather than echoed _(1/1)_
+      - ● **[FE-14](./items/FE-14.md)** Version-resolution semantics, decided before implementation _(1/1)_
+        - ● **[ST-26](./items/ST-26.md)** Determine version-resolution semantics and their falsifiers
 
