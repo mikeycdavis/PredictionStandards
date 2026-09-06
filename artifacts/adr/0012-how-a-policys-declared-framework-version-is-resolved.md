@@ -7,7 +7,7 @@
   [2026-08-25 policy standard-version semantics](../release-review/2026-08-25-policy-standard-version-semantics.md),
   which identified the unverified field as a cycle of its own and named itself as the evidence that
   cycle would start from. Tracked as ST-26 under FE-14 / EP-07 / IN-05.
-- **Revised before merge, 2026-09-04.** A first draft resolved a version against a numeric window,
+- **Revised before merge, 2026-09-06.** A first draft resolved a version against a numeric window,
   `maxIntroducedIn(catalog) <= declared <= VERSION`. Review found that a numeric interval is not a
   release register: `1.1.1` sits inside `[1.1.0, 1.2.0]` and names no release this pack has ever
   made. The draft had substituted an upper bound for a proof of existence, and had treated an
