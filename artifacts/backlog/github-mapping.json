@@ -374,5 +374,9 @@
       "state": "open",
       "parent": null
     }
-  }
+  },
+  "authority": "github",
+  "switchedAt": "2026-09-20",
+  "verifiedBy": "record-switch: 53 mapped items each found as a marked issue",
+  "recovery": "The issues are the record. This file maps every legacy id to its issue number and id. To recover the file backlog, restore the item files from this repository's git history at the commit that removed them, then set authority back to \"files\"."
 }
