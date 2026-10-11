@@ -30,7 +30,7 @@
  * prediction, and the usual response to that is to weaken the check.
  */
 
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -45,6 +45,7 @@ import {
   STATUS,
 } from "./compliance.mjs";
 import { checkPolicy } from "./policy.mjs";
+import { describeFailure, notAttempted, readRegister, resolveVersion } from "./release-register.mjs";
 import {
   EVALUATED_RULES,
   inspect,
@@ -82,6 +83,9 @@ function usage() {
   --as-of=<ISO>     Evaluate staleness and expiry against this instant (default: now).
                     Pin it to make a run reproducible.
   --json            Emit the structured report on stdout instead of the readable one.
+  --resolution=<path>
+                    Write the standardVersion resolution document (E1 existence, E2
+                    compatibility, E3 introduction bound) to <path>. Never changes stdout.
   --strict          audit only: exit 1 when any finding needs attention.
   --dry-run         init only: report what would happen, write nothing.
   --force-overwrite=<path>
@@ -98,6 +102,7 @@ function parseArgs(argv) {
     policy: null,
     asOf: null,
     json: false,
+    resolution: null,
     strict: false,
     dryRun: false,
     forceOverwrite: [],
@@ -108,6 +113,10 @@ function parseArgs(argv) {
     else if (arg === "--dry-run") options.dryRun = true;
     else if (arg.startsWith("--policy=")) options.policy = arg.slice("--policy=".length);
     else if (arg.startsWith("--as-of=")) options.asOf = arg.slice("--as-of=".length);
+    else if (arg.startsWith("--resolution=")) {
+      options.resolution = arg.slice("--resolution=".length);
+      if (!options.resolution) throw new Error("--resolution needs a path");
+    }
     else if (arg.startsWith("--force-overwrite=")) options.forceOverwrite.push(arg.slice("--force-overwrite=".length));
     else if (arg.startsWith("--")) throw new Error(`unknown flag '${arg}'`);
     else if (options.command === null) options.command = arg;
@@ -254,20 +263,31 @@ async function evaluateAll({ catalog, schema, policy, target, asOf, includeSerie
   return { reports, aggregate, status: aggregateStatus(reports.map((r) => r.status)), parameters };
 }
 
-/** Load the policy, or return the reason it could not be loaded. Never a verdict. */
-async function loadPolicy(policyPath, asOf) {
-  if (!policyPath) return { policy: null, error: "no project-policy.yml was found" };
+/**
+ * Load the policy, or return the reason it could not be loaded. Never a verdict.
+ *
+ * ADR 0012: this is also where the declared `standardVersion` is resolved, because it must be
+ * answered before a record is read and be the same answer for every target. `resolution` is
+ * attached here and read by the caller; neither `checkPolicy` nor `evaluate` knows about it. The
+ * inputs are the catalog and the register shipped with the pack, never the target.
+ */
+async function loadPolicy(policyPath, asOf, { catalog, register, registerState, packVersion }) {
+  if (!policyPath) {
+    return { policy: null, error: "no project-policy.yml was found", resolution: notAttempted("no-policy") };
+  }
   const result = await checkPolicy(policyPath, POLICY_SCHEMA, asOf.slice(0, 10));
   if (result.status === "invalid") {
-    return {
-      policy: null,
-      error: `${relative(policyPath)} is not valid: ${result.errors.map((e) => `${e.path || "(document)"} ${e.message}`).join("; ")}`,
-    };
+    const error = `${relative(policyPath)} is not valid: ${result.errors.map((e) => `${e.path || "(document)"} ${e.message}`).join("; ")}`;
+    return { policy: null, error, resolution: { ...notAttempted("policy-invalid", error), policy: relative(policyPath) } };
   }
+  const resolution = {
+    ...resolveVersion({ declared: result.document.standardVersion, catalog, register, registerState, packVersion }),
+    policy: relative(policyPath),
+  };
   // A policy with compliance findings still loads. Those findings are real — an expired exception,
   // an exception against a non-exemptible rule — and the compliance engine reports them against the
   // rules they target rather than refusing to run.
-  return { policy: result.document, policyFindings: result.findings };
+  return { policy: result.document, policyFindings: result.findings, resolution };
 }
 
 /**
@@ -442,7 +462,31 @@ async function main() {
   }
 
   const policyPath = resolvePolicyPath(options);
-  const { policy, error: policyError } = await loadPolicy(policyPath, asOf);
+  const { register, state: registerState } = await readRegister();
+  let packVersion = null;
+  try {
+    packVersion = (await readFile(path.join(ROOT, "VERSION"), "utf8")).trim();
+  } catch {
+    // E3 reports an unreadable pack version as its own reason; it is not a crash here.
+  }
+  const { policy, error: policyError, resolution } = await loadPolicy(policyPath, asOf, {
+    catalog,
+    register,
+    registerState,
+    packVersion,
+  });
+
+  // The resolution document is written before anything can exit, so a failed run still leaves it.
+  // It goes to a path the caller named and never to stdout: `check --json` stdout is parsed by the
+  // enforcer's adapter and stays byte-identical whether or not this flag is given.
+  if (options.resolution) {
+    try {
+      await writeFile(options.resolution, JSON.stringify(resolution, null, 2) + "\n");
+    } catch (error) {
+      process.stderr.write(`predictions ${options.command}: cannot write --resolution file: ${error.message}\n`);
+      return exitWith(EXIT_INVOCATION);
+    }
+  }
 
   // `audit` produces no verdict, so it needs no policy — but it does need the project's thresholds,
   // because a disagreement threshold or a confidence vocabulary is an input to *observing* anything
@@ -458,6 +502,30 @@ async function main() {
     process.stderr.write(`predictions ${options.command}: ${policyError}\n`);
     process.stderr.write("A policy that cannot be read is a configuration fault, not a failing prediction.\n");
     return exitWith(EXIT_INVOCATION);
+  }
+
+  // An unresolvable declared version is a configuration fault, never a compliance failure
+  // (ADR 0012 D6): NOT_EVALUATED, exit 2, before any record is read, with no report on stdout.
+  if (!auditing && resolution.attempted && !resolution.resolved) {
+    process.stderr.write(`predictions ${options.command}: NOT_EVALUATED: ${describeFailure(resolution)}\n`);
+    process.stderr.write(
+      "A declared version that cannot be resolved is a configuration fault, not a failing prediction. No record was read.\n",
+    );
+    return exitWith(EXIT_INVOCATION);
+  }
+
+  // `audit` keeps its established exit codes under a resolution fault (0, even with --strict: a
+  // missing or unresolvable policy never stopped it). Silence would then read as success, so the
+  // fault is carried in words here and in the --resolution document. A run with no policy at all
+  // is not announced: there was no declaration to resolve.
+  const auditResolutionNote =
+    auditing && (resolution.attempted ? !resolution.resolved : resolution.reason === "policy-invalid")
+      ? describeFailure(resolution)
+      : null;
+  if (auditResolutionNote) {
+    process.stderr.write(
+      `predictions audit: ${auditResolutionNote}. audit's exit status is unchanged and does NOT mean the version resolved.\n`,
+    );
   }
 
   let evaluation;
@@ -512,6 +580,7 @@ async function main() {
           ? `  Thresholds: from ${relative(policyPath)} (audit reads parameters only, and reaches no verdict)`
           : "  Thresholds: evaluator defaults (no policy found; audit reaches no verdict regardless)",
       );
+      if (auditResolutionNote) out.push(`  Version:    ${auditResolutionNote} (this exit status does not mean it resolved)`);
     } else if (policyPath) {
       out.push(`  Policy:     ${relative(policyPath)}`);
     }

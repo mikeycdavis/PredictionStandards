@@ -95,6 +95,19 @@ reproduction.
 Every report states the `asOf` it used and the `parameters` it applied, so a verdict never rests on
 a threshold the reader cannot see.
 
+### Version resolution
+
+A policy's `standardVersion` is checked before any record is read (ADR 0012). It resolves only when
+the version names a release listed in `artifacts/release-register.json` (E1), the catalog shipping
+now still matches that release's recorded per-rule digests (E2), and no rule in the catalog was
+introduced after it (E3). A version that does not resolve is `NOT_EVALUATED` with exit `2` on
+`check`, `explain` and `status`; it is a configuration fault, never an `INSUFFICIENTLY_SUPPORTED`
+finding. `audit` keeps its exit codes and says on stderr that the version did not resolve.
+
+Pass `--resolution=<path>` to write the resolution document, which names which establishment failed
+and why. It is a file, so `--json` stdout is unchanged. To prepare a register entry for review, run
+`node scripts/release-register.mjs print --version=<x.y.z>`; it prints and never writes.
+
 ## 7. Writing a policy
 
 Four mechanisms, deliberately not interchangeable:
