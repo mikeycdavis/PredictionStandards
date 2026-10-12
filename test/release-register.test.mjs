@@ -1127,3 +1127,41 @@ test("a failed write leaves no temp file and exits 2", () => {
   assert.equal(r.status, 2);
   assert.deepEqual(readdirSync(dir), []);
 });
+
+// ---------------------------------------------------------------------------
+// the command x --resolution matrix: every cell is decided, none is a silent no-op (Codex P2 on 6059a0a)
+// ---------------------------------------------------------------------------
+
+test("--resolution x every command: check/explain/status/audit write the document, init is refused", () => {
+  const policy = path.join(ROOT, "project-policy.yml");
+  const records = path.join(ROOT, "examples/records");
+  for (const command of ["check", "explain", "status", "audit"]) {
+    const out = path.join(scratch("ps-matrix-"), "r.json");
+    const r = run(ROOT, [command, records, `--policy=${policy}`, `--as-of=${AS_OF}`, `--resolution=${out}`]);
+    assert.equal(r.status, 0, `${command}: exit ${r.status}: ${r.stderr}`);
+    assert.equal(JSON.parse(readFileSync(out, "utf8")).resolved, true, `${command} wrote no document`);
+  }
+
+  const project = scratch("ps-init-");
+  const doc = path.join(scratch("ps-init-out-"), "r.json");
+  const r = run(ROOT, ["init", project, `--resolution=${doc}`]);
+  assert.equal(r.status, 2, "init accepted --resolution and exited success without writing it");
+  assert.match(r.stderr, /--resolution does not apply to init/);
+  assert.deepEqual(readdirSync(project), [], "init scaffolded files despite the refusal");
+  assert.ok(!existsSync(doc));
+});
+
+test("--resolution on the print helper is an unknown flag, exit 2, nothing written", () => {
+  const doc = path.join(scratch("ps-helper-"), "r.json");
+  const r = helper(["print", "--version=1.2.0", `--resolution=${doc}`]);
+  assert.equal(r.status, 2);
+  assert.equal(r.stdout, "");
+  assert.ok(!existsSync(doc));
+});
+
+test("init without --resolution is unchanged", () => {
+  const project = scratch("ps-init2-");
+  const r = run(ROOT, ["init", project]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(readdirSync(project).length > 0);
+});

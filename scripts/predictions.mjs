@@ -86,6 +86,7 @@ function usage() {
   --resolution=<path>
                     Write the standardVersion resolution document (E1 existence, E2
                     compatibility, E3 introduction bound) to <path>. Never changes stdout.
+                    Not valid with init.
   --strict          audit only: exit 1 when any finding needs attention.
   --dry-run         init only: report what would happen, write nothing.
   --force-overwrite=<path>
@@ -126,6 +127,12 @@ function parseArgs(argv) {
   if (!options.command) throw new Error("a command is required");
   if (!["init", "audit", "check", "explain", "status"].includes(options.command)) {
     throw new Error(`unknown command '${options.command}'`);
+  }
+  if (options.resolution !== null && options.command === "init") {
+    // `init` resolves no policy version, so there is no document to write. Accepting the flag and
+    // exiting 0 would read as "the document was written"; refusing keeps a flag from being a
+    // silent no-op. check, explain, status and audit each write it.
+    throw new Error("--resolution does not apply to init: init resolves no standardVersion and writes no resolution document");
   }
   if (options.strict && options.command !== "audit") {
     // --strict changes an exit contract, and only audit's is hers to change. Allowing it on check
