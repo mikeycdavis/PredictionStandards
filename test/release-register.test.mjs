@@ -31,6 +31,7 @@ import {
   statSync,
   symlinkSync,
   linkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -1164,4 +1165,73 @@ test("init without --resolution is unchanged", () => {
   const r = run(ROOT, ["init", project]);
   assert.equal(r.status, 0, r.stderr);
   assert.ok(readdirSync(project).length > 0);
+});
+
+// ---------------------------------------------------------------------------
+// a symlinked input is protected through its backing file (Codex P1 on f507473)
+// ---------------------------------------------------------------------------
+
+/** Replace `file` with a symlink to a copy of its content kept outside; null when symlinks are unavailable. */
+function symlinkInput(file) {
+  const backing = path.join(scratch("ps-backing-"), path.basename(file));
+  cpSync(file, backing);
+  unlinkSync(file);
+  try {
+    symlinkSync(backing, file, "file");
+  } catch {
+    cpSync(backing, file);
+    return null;
+  }
+  return backing;
+}
+
+test("--resolution naming the backing file of a symlinked input is refused, for every input class", (t) => {
+  const cases = [];
+  // a record in the target
+  {
+    const target = recordsCopy();
+    const link = path.join(target, "supported-prediction.json");
+    const backing = symlinkInput(link);
+    if (!backing) return t.skip("file symlinks are not available on this host");
+    cases.push({ name: "record", pack: ROOT, target, backing, args: [`--policy=${path.join(ROOT, "project-policy.yml")}`] });
+  }
+  // pack files, each through a symlink inside a fresh pack copy
+  for (const [name, rel] of [
+    ["VERSION", "VERSION"],
+    ["register", "artifacts/release-register.json"],
+    ["a rules file", "rules/" + readdirSync(path.join(ROOT, "rules")).find((f) => f.endsWith(".json"))],
+    ["record schema", "schemas/prediction-record.schema.json"],
+  ]) {
+    const pack = makePack();
+    const backing = symlinkInput(path.join(pack, rel));
+    cases.push({ name, pack, target: path.join(pack, "examples/records"), backing, args: [] });
+  }
+  // the policy file, passed as a symlink
+  {
+    const dir = scratch("ps-polsym-");
+    const link = path.join(dir, "project-policy.yml");
+    cpSync(path.join(ROOT, "project-policy.yml"), link);
+    const backing = symlinkInput(link);
+    cases.push({ name: "policy", pack: ROOT, target: path.join(ROOT, "examples/records"), backing, args: [`--policy=${link}`] });
+  }
+  for (const c of cases) {
+    const before = readFileSync(c.backing);
+    const r = run(c.pack, ["check", c.target, `--as-of=${AS_OF}`, `--resolution=${c.backing}`, ...c.args]);
+    assert.equal(r.status, 2, `${c.name}: exit ${r.status} ${r.stderr}`);
+    assert.match(r.stderr, /refused/, c.name);
+    assert.ok(readFileSync(c.backing).equals(before), `${c.name}: the backing file was replaced`);
+  }
+});
+
+test("a supported one-record check is unaffected by a refused resolution onto its symlinked record", (t) => {
+  const target = scratch("ps-onerec-");
+  const link = path.join(target, "supported-prediction.json");
+  cpSync(path.join(ROOT, "examples/records/supported-prediction.json"), link);
+  const backing = symlinkInput(link);
+  if (!backing) return t.skip("file symlinks are not available on this host");
+  const policy = `--policy=${path.join(ROOT, "project-policy.yml")}`;
+  const bad = run(ROOT, ["check", target, policy, `--as-of=${AS_OF}`, `--resolution=${backing}`]);
+  assert.equal(bad.status, 2);
+  const ok = run(ROOT, ["check", target, policy, `--as-of=${AS_OF}`]);
+  assert.equal(ok.status, 0, ok.stderr);
 });

@@ -34,7 +34,7 @@ import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { existsSync, lstatSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, realpathSync } from "node:fs";
 
 import { loadCatalog, assertBindings, coverage, CatalogError, CATALOG_DIR } from "./catalog.mjs";
 import {
@@ -284,7 +284,27 @@ function readSet({ target, policyPath }) {
     { p: POLICY_SCHEMA, why: "the project-policy schema" },
     { p: path.join(ROOT, "scripts"), dir: true, why: "the scripts directory, the code being run" },
   ];
-  return entries.filter((e) => e.p);
+  // A directory is guarded by containment, which does not see a FILE inside it that is a symlink to
+  // somewhere else: the run reads the backing file, and a write onto the backing file would replace
+  // what the run is about to read. So every file under a guarded directory is also guarded as a
+  // file, and canonicalPath() resolves each through the filesystem to the file actually read.
+  // (A hard link needs no such entry: the write is a rename, which replaces the destination's
+  // directory entry and never modifies the inode another name points at.)
+  const expanded = [];
+  for (const entry of entries.filter((e) => e.p)) {
+    expanded.push(entry);
+    if (!entry.dir) continue;
+    let names = [];
+    try {
+      names = readdirSync(entry.p, { recursive: true });
+    } catch {
+      // a target that is a single file, or does not exist yet, has nothing to enumerate
+    }
+    for (const name of names) {
+      expanded.push({ p: path.join(entry.p, String(name)), why: `a file read by this run (${relative(path.join(entry.p, String(name)))}, reached through ${entry.why.split(",")[0]})` });
+    }
+  }
+  return expanded;
 }
 
 /**
