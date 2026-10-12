@@ -30,6 +30,7 @@
  * prediction, and the usual response to that is to weaken the check.
  */
 
+import { randomBytes } from "node:crypto";
 import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -166,8 +167,15 @@ function parseArgs(argv) {
 }
 
 /** Find the policy: an explicit flag, then upward from the record, then this repository's own. */
-function resolvePolicyPath(options) {
-  if (options.policy) return options.policy;
+/**
+ * Every project-policy.yml path the search looks at, in order, up to and including the first that
+ * exists, whether or not it exists. A file created at an earlier candidate would be discovered by
+ * the NEXT run, so those names are inputs of this run even though nothing is there yet.
+ * Empty when --policy names the policy explicitly: nothing is searched then.
+ */
+function policySearchCandidates(options) {
+  if (options.policy) return [];
+  const candidates = [];
   let dir = path.resolve(options.target ?? ".");
   if (existsSync(dir) && !dir.endsWith(".json")) {
     // walk from the directory itself
@@ -176,13 +184,20 @@ function resolvePolicyPath(options) {
   }
   for (let i = 0; i < 12; i++) {
     const candidate = path.join(dir, "project-policy.yml");
-    if (existsSync(candidate)) return candidate;
+    candidates.push(candidate);
+    if (existsSync(candidate)) return candidates;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  const own = path.join(ROOT, "project-policy.yml");
-  return existsSync(own) ? own : null;
+  candidates.push(path.join(ROOT, "project-policy.yml"));
+  return candidates;
+}
+
+function resolvePolicyPath(options) {
+  if (options.policy) return options.policy;
+  const found = policySearchCandidates(options).find((c) => existsSync(c));
+  return found ?? null;
 }
 
 /**
@@ -253,17 +268,23 @@ function resolutionDestinationProblem(outPath) {
  * directory entry and never writes through whatever the entry pointed at, so a destination that
  * became a symlink, FIFO or device after validation is replaced rather than followed.
  */
-async function writeResolutionFile(file, text) {
+export async function writeResolutionFile(file, text, { tempPath } = {}) {
   const abs = path.resolve(file);
-  const temp = path.join(path.dirname(abs), `.${path.basename(abs)}.${process.pid}.tmp`);
+  const temp = tempPath ?? path.join(path.dirname(abs), `.${path.basename(abs)}.${randomBytes(8).toString("hex")}.tmp`);
+  // Only a file THIS call created may be removed. A "wx" open that fails with EEXIST means the name
+  // belongs to someone else (a stale or concurrent file); unlinking it would destroy what we do not own.
+  let created = false;
   try {
     await writeFile(temp, text, { flag: "wx" });
+    created = true;
     await rename(temp, abs);
   } catch (error) {
-    try {
-      await unlink(temp);
-    } catch {
-      // nothing was created, or it is already gone
+    if (created) {
+      try {
+        await unlink(temp);
+      } catch {
+        // already gone
+      }
     }
     throw error;
   }
@@ -277,10 +298,11 @@ async function writeResolutionFile(file, text) {
  *   file entries are guarded by equality, directory entries by containment.
  *   The target is guarded as a tree: every .json under it is read as a record.
  */
-function readSet({ target, policyPath }, unenumerable = []) {
+function readSet({ target, policyPath, policyCandidates = [] }, unenumerable = []) {
   const entries = [
     { p: target, dir: true, why: `the target (${relative(target)}), where every .json is read as a record` },
     { p: policyPath, why: "the policy file" },
+    ...policyCandidates.map((c) => ({ p: c, why: `a project-policy.yml the policy search looks at (${relative(c)})` })),
     { p: REGISTER_PATH, why: "the release register" },
     { p: path.join(ROOT, "VERSION"), why: "the pack VERSION file" },
     { p: CATALOG_DIR, dir: true, why: "the rule catalog (rules/), read on every run" },
@@ -635,7 +657,7 @@ async function main() {
   // Refused before anything is written or read: an output that lands in the input tree changes the
   // very run that produces it. Exit 2 is an invocation error, the same class as an unknown flag.
   if (options.resolution) {
-    const conflict = resolutionPathConflict(options.resolution, { target, policyPath });
+    const conflict = resolutionPathConflict(options.resolution, { target, policyPath, policyCandidates: policySearchCandidates(options) });
     const problem = conflict ?? resolutionDestinationProblem(options.resolution);
     if (problem) {
       process.stderr.write(`predictions ${options.command}: --resolution=${options.resolution} refused: ${problem}. Nothing was written.

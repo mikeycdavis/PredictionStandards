@@ -1300,3 +1300,56 @@ test("a symlinked record in a nested subdirectory of the target is guarded too",
   assert.match(r.stderr, /refused: it is a file read by this run/);
   assert.ok(readFileSync(backing).equals(before));
 });
+
+// ---------------------------------------------------------------------------
+// policy search candidates, and temp-file ownership (Codex P2s on 86cadc8)
+// ---------------------------------------------------------------------------
+
+test("every project-policy.yml the search would look at is guarded, existing or not", () => {
+  const root = scratch("ps-search-");
+  const records = path.join(root, "records");
+  mkdirSync(records);
+  const record = path.join(records, "r.json");
+  cpSync(path.join(ROOT, "examples/records/supported-prediction.json"), record);
+  const policyBefore = path.join(root, "project-policy.yml");
+  // /tmp/.../records/project-policy.yml and /tmp/.../project-policy.yml are both searched
+  for (const candidate of [path.join(records, "project-policy.yml"), policyBefore]) {
+    const r = run(ROOT, ["check", record, `--as-of=${AS_OF}`, `--resolution=${candidate}`]);
+    assert.equal(r.status, 2, `${candidate}: exit ${r.status}`);
+    assert.match(r.stderr, /refused/);
+    assert.ok(!existsSync(candidate), `${candidate} was created`);
+  }
+  // the run still works without the flag, and a resolution elsewhere is fine
+  const out = path.join(scratch("ps-search-out-"), "r.json");
+  const ok = run(ROOT, ["check", record, `--as-of=${AS_OF}`, `--resolution=${out}`]);
+  assert.equal(ok.status, 0, ok.stderr);
+});
+
+test("a candidate beyond the first existing policy is not searched, so it is not guarded", () => {
+  const root = scratch("ps-search2-");
+  const records = path.join(root, "records");
+  mkdirSync(records);
+  const record = path.join(records, "r.json");
+  cpSync(path.join(ROOT, "examples/records/supported-prediction.json"), record);
+  cpSync(path.join(ROOT, "project-policy.yml"), path.join(records, "project-policy.yml"));
+  const beyond = path.join(root, "project-policy.yml");
+  const r = run(ROOT, ["check", record, `--as-of=${AS_OF}`, `--resolution=${beyond}`]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(beyond));
+});
+
+test("writeResolutionFile removes only a temp file it created", async () => {
+  const dir = scratch("ps-temp-");
+  const temp = path.join(dir, "stale.tmp");
+  writeFileSync(temp, "someone else's");
+  const m = await import("../scripts/predictions.mjs");
+  await assert.rejects(m.writeResolutionFile(path.join(dir, "r.json"), "x", { tempPath: temp }), /EEXIST/);
+  assert.equal(readFileSync(temp, "utf8"), "someone else's", "a file this call did not create was deleted");
+  assert.ok(!existsSync(path.join(dir, "r.json")));
+  // and a failure after creating the temp (destination is a directory) cleans up its own temp
+  const target = path.join(dir, "adir");
+  mkdirSync(target);
+  const own = path.join(dir, "own.tmp");
+  await assert.rejects(m.writeResolutionFile(target, "x", { tempPath: own }));
+  assert.ok(!existsSync(own), "its own temp file was left behind");
+});
