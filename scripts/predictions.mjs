@@ -36,7 +36,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { existsSync, realpathSync } from "node:fs";
 
-import { loadCatalog, assertBindings, coverage, CatalogError } from "./catalog.mjs";
+import { loadCatalog, assertBindings, coverage, CatalogError, CATALOG_DIR } from "./catalog.mjs";
 import {
   evaluate,
   envelope,
@@ -206,17 +206,40 @@ const insideOrEqual = (child, parent) => {
 };
 
 /**
+ * Everything a run reads, as a computed list rather than a remembered one: an output that lands on
+ * any of these changes the run that produces it, or the next one. Each entry is one line so that a
+ * mutant can remove it and a test can name it.
+ *
+ *   file entries are guarded by equality, directory entries by containment.
+ *   The target is guarded as a tree: every .json under it is read as a record.
+ */
+function readSet({ target, policyPath }) {
+  const entries = [
+    { p: target, dir: true, why: `the target (${relative(target)}), where every .json is read as a record` },
+    { p: policyPath, why: "the policy file" },
+    { p: REGISTER_PATH, why: "the release register" },
+    { p: path.join(ROOT, "VERSION"), why: "the pack VERSION file" },
+    { p: CATALOG_DIR, dir: true, why: "the rule catalog (rules/), read on every run" },
+    { p: RECORD_SCHEMA, why: "the prediction-record schema" },
+    { p: POLICY_SCHEMA, why: "the project-policy schema" },
+    { p: path.join(ROOT, "scripts"), dir: true, why: "the scripts directory, the code being run" },
+  ];
+  return entries.filter((e) => e.p);
+}
+
+/**
  * Why `--resolution` may not name this path, or null. The record scan treats every .json under the
  * target as a prediction record, so a document written there would be evaluated as an extra
- * malformed record, and one written over a record would destroy it before it was read. An output
- * must not land in the input tree, and must not replace the policy or the register either.
+ * malformed record, and one written over an input would destroy it before it was read. An output
+ * must not land on anything the run reads.
  */
-function resolutionPathConflict(outPath, { target, policyPath, registerPath }) {
+function resolutionPathConflict(outPath, context) {
   const out = canonicalPath(outPath);
-  const input = canonicalPath(target);
-  if (insideOrEqual(out, input)) return `it is inside or equal to the target (${relative(target)}), where every .json is read as a record`;
-  if (policyPath && samePath(out, canonicalPath(policyPath))) return "it is the policy file";
-  if (samePath(out, canonicalPath(registerPath))) return "it is the release register";
+  for (const entry of readSet(context)) {
+    const input = canonicalPath(entry.p);
+    const hit = entry.dir ? insideOrEqual(out, input) : samePath(out, input);
+    if (hit) return entry.dir ? `it is inside or equal to ${entry.why}` : `it is ${entry.why}`;
+  }
   return null;
 }
 
@@ -508,7 +531,7 @@ async function main() {
   // Refused before anything is written or read: an output that lands in the input tree changes the
   // very run that produces it. Exit 2 is an invocation error, the same class as an unknown flag.
   if (options.resolution) {
-    const conflict = resolutionPathConflict(options.resolution, { target, policyPath, registerPath: REGISTER_PATH });
+    const conflict = resolutionPathConflict(options.resolution, { target, policyPath });
     if (conflict) {
       process.stderr.write(`predictions ${options.command}: --resolution=${options.resolution} refused: ${conflict}. Nothing was written.
 `);

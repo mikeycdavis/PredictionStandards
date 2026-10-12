@@ -977,3 +977,57 @@ test("the refusal applies to audit too (an input must not be overwritten by any 
   assert.equal(r.status, 2);
   assert.ok(readFileSync(record).equals(before));
 });
+
+// ---------------------------------------------------------------------------
+// every input of a run is guarded, not only the ones someone remembered (Codex P2 #2 on #61)
+// ---------------------------------------------------------------------------
+
+test("--resolution is refused for every file the resolver and loader read", () => {
+  const pack = makePack();
+  const rulesFile = path.join(pack, "rules", readdirSync(path.join(pack, "rules")).find((f) => f.endsWith(".json")));
+  const inputs = {
+    VERSION: path.join(pack, "VERSION"),
+    "release register": path.join(pack, "artifacts/release-register.json"),
+    "a rules file": rulesFile,
+    "a new file in rules/": path.join(pack, "rules", "zz-new.json"),
+    "record schema": path.join(pack, "schemas/prediction-record.schema.json"),
+    "policy schema": path.join(pack, "schemas/project-policy.schema.json"),
+    "pack project-policy.yml": path.join(pack, "project-policy.yml"),
+    "a script": path.join(pack, "scripts/catalog.mjs"),
+    "a new file in scripts/": path.join(pack, "scripts", "zz-new.mjs"),
+  };
+  const snapshot = () => {
+    const out = {};
+    const walk = (d) => {
+      for (const n of readdirSync(d)) {
+        const f = path.join(d, n);
+        if (statSync(f).isDirectory()) walk(f);
+        else out[path.relative(pack, f)] = sha256(readFileSync(f));
+      }
+    };
+    walk(pack);
+    return out;
+  };
+  const before = snapshot();
+  for (const [name, file] of Object.entries(inputs)) {
+    const r = run(pack, [
+      "check",
+      path.join(pack, "examples/records"),
+      `--as-of=${AS_OF}`,
+      `--resolution=${file}`,
+    ]);
+    assert.equal(r.status, 2, `${name}: exit ${r.status}, ${r.stderr}`);
+    assert.match(r.stderr, /refused/, name);
+    assert.equal(r.stdout, "", name);
+    assert.deepEqual(snapshot(), before, `${name}: the pack changed`);
+  }
+});
+
+test("the pack VERSION still reads 1.2.0 after a refused --resolution=VERSION (the reported reproduction)", () => {
+  const pack = makePack();
+  const r = run(pack, ["check", path.join(pack, "examples/records"), `--as-of=${AS_OF}`, `--resolution=${path.join(pack, "VERSION")}`]);
+  assert.equal(r.status, 2);
+  assert.equal(readFileSync(path.join(pack, "VERSION"), "utf8").trim(), VERSION);
+  const ok = run(pack, ["check", path.join(pack, "examples/records"), `--as-of=${AS_OF}`]);
+  assert.equal(ok.status, 0, ok.stderr);
+});
