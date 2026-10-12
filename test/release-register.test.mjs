@@ -29,6 +29,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -855,4 +856,124 @@ test("audit with a resolvable version says nothing extra", () => {
   assert.equal(r.status, 0);
   assert.equal(r.doc.resolved, true);
   assert.doesNotMatch(r.stdout + r.stderr, /did not resolve/i);
+});
+
+// ---------------------------------------------------------------------------
+// --resolution must not land in the input tree (Codex P2 on #61)
+// ---------------------------------------------------------------------------
+
+function recordsCopy() {
+  const dir = scratch("ps-recs-");
+  cpSync(path.join(ROOT, "examples/records"), dir, { recursive: true });
+  return dir;
+}
+const bytesOf = (dir) =>
+  Object.fromEntries(readdirSync(dir).sort().map((f) => [f, readFileSync(path.join(dir, f), "utf8")]));
+
+function runWith(target, resolution, extra = []) {
+  return run(ROOT, [
+    "check",
+    target,
+    `--policy=${path.join(ROOT, "project-policy.yml")}`,
+    `--as-of=${AS_OF}`,
+    `--resolution=${resolution}`,
+    ...extra,
+  ]);
+}
+
+test("--resolution inside the target tree is refused: exit 2, nothing written, records untouched", () => {
+  const target = recordsCopy();
+  const before = bytesOf(target);
+  const r = runWith(target, path.join(target, "resolution.json"));
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /refused/);
+  assert.equal(r.stdout, "");
+  assert.deepEqual(bytesOf(target), before, "the target directory changed");
+});
+
+test("--resolution inside a subdirectory of the target is refused too", () => {
+  const target = recordsCopy();
+  const before = bytesOf(target);
+  const r = runWith(target, path.join(target, "nested", "deeper", "r.json"));
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /refused/);
+  assert.deepEqual(bytesOf(target), before);
+  assert.ok(!existsSync(path.join(target, "nested")));
+});
+
+test("--resolution naming an existing record is refused and the record's bytes are unchanged", () => {
+  const target = recordsCopy();
+  const record = path.join(target, "supported-prediction.json");
+  const before = readFileSync(record);
+  const r = runWith(target, record);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /refused/);
+  assert.ok(readFileSync(record).equals(before));
+});
+
+test("--resolution naming the single-file target is refused", () => {
+  const target = recordsCopy();
+  const record = path.join(target, "supported-prediction.json");
+  const before = readFileSync(record);
+  const r = runWith(record, record);
+  assert.equal(r.status, 2);
+  assert.ok(readFileSync(record).equals(before));
+});
+
+test("--resolution is compared after normalisation: .. segments and a symlinked directory do not evade it", (t) => {
+  const target = recordsCopy();
+  const before = bytesOf(target);
+  const viaDots = path.join(target, "..", path.basename(target), "r.json");
+  assert.equal(runWith(target, viaDots).status, 2);
+  const link = path.join(scratch("ps-link-"), "alias");
+  try {
+    symlinkSync(target, link, process.platform === "win32" ? "junction" : "dir");
+  } catch (error) {
+    t.diagnostic(`symlink not available: ${error.code}`);
+    assert.deepEqual(bytesOf(target), before);
+    return;
+  }
+  const r = runWith(target, path.join(link, "r.json"));
+  assert.equal(r.status, 2, "a path through a symlink into the target was accepted");
+  assert.match(r.stderr, /refused/);
+  assert.deepEqual(bytesOf(target), before);
+});
+
+test("--resolution may not replace the policy file or the release register", () => {
+  const dir = scratch("ps-pol-");
+  const policy = path.join(dir, "project-policy.yml");
+  cpSync(path.join(ROOT, "project-policy.yml"), policy);
+  const policyBefore = readFileSync(policy);
+  const r = run(ROOT, ["check", path.join(ROOT, "examples/records"), `--policy=${policy}`, `--as-of=${AS_OF}`, `--resolution=${policy}`]);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /policy file/);
+  assert.ok(readFileSync(policy).equals(policyBefore));
+
+  const registerBefore = readFileSync(REGISTER_FILE);
+  const r2 = runWith(path.join(ROOT, "examples/records"), REGISTER_FILE);
+  assert.equal(r2.status, 2);
+  assert.match(r2.stderr, /release register/);
+  assert.ok(readFileSync(REGISTER_FILE).equals(registerBefore));
+});
+
+test("--resolution outside the target and the inputs still works, with an unchanged verdict", () => {
+  const target = recordsCopy();
+  const before = bytesOf(target);
+  const base = run(ROOT, ["check", target, `--policy=${path.join(ROOT, "project-policy.yml")}`, `--as-of=${AS_OF}`, "--json"]);
+  const out = path.join(scratch("ps-outside-"), "sub", "r.json");
+  mkdirSync(path.dirname(out), { recursive: true });
+  const r = runWith(target, out, ["--json"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout, base.stdout);
+  assert.equal(JSON.parse(readFileSync(out, "utf8")).resolved, true);
+  assert.deepEqual(bytesOf(target), before);
+});
+
+test("the refusal applies to audit too (an input must not be overwritten by any command)", () => {
+  const target = recordsCopy();
+  const record = path.join(target, "supported-prediction.json");
+  const before = readFileSync(record);
+  const r = run(ROOT, ["audit", target, `--policy=${path.join(ROOT, "project-policy.yml")}`, `--resolution=${record}`]);
+  assert.equal(r.status, 2);
+  assert.ok(readFileSync(record).equals(before));
 });

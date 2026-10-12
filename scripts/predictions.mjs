@@ -34,7 +34,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 
 import { loadCatalog, assertBindings, coverage, CatalogError } from "./catalog.mjs";
 import {
@@ -45,7 +45,7 @@ import {
   STATUS,
 } from "./compliance.mjs";
 import { checkPolicy } from "./policy.mjs";
-import { describeFailure, notAttempted, readRegister, resolveVersion } from "./release-register.mjs";
+import { describeFailure, notAttempted, readRegister, resolveVersion, REGISTER_PATH } from "./release-register.mjs";
 import {
   EVALUATED_RULES,
   inspect,
@@ -176,6 +176,48 @@ function resolvePolicyPath(options) {
   }
   const own = path.join(ROOT, "project-policy.yml");
   return existsSync(own) ? own : null;
+}
+
+/**
+ * A path that may not exist yet, made comparable: the deepest existing ancestor is resolved through
+ * the filesystem (symlinks, relative segments, Windows case) and the not-yet-existing remainder is
+ * appended. Used to refuse an OUTPUT that would land on an input.
+ */
+function canonicalPath(p) {
+  let head = path.resolve(p);
+  const tail = [];
+  for (;;) {
+    try {
+      const real = realpathSync.native(head);
+      return path.join(real, ...tail.reverse());
+    } catch {
+      const parent = path.dirname(head);
+      if (parent === head) return path.resolve(p);
+      tail.push(path.basename(head));
+      head = parent;
+    }
+  }
+}
+
+const samePath = (a, b) => (process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b);
+const insideOrEqual = (child, parent) => {
+  const rel = path.relative(parent, child);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+};
+
+/**
+ * Why `--resolution` may not name this path, or null. The record scan treats every .json under the
+ * target as a prediction record, so a document written there would be evaluated as an extra
+ * malformed record, and one written over a record would destroy it before it was read. An output
+ * must not land in the input tree, and must not replace the policy or the register either.
+ */
+function resolutionPathConflict(outPath, { target, policyPath, registerPath }) {
+  const out = canonicalPath(outPath);
+  const input = canonicalPath(target);
+  if (insideOrEqual(out, input)) return `it is inside or equal to the target (${relative(target)}), where every .json is read as a record`;
+  if (policyPath && samePath(out, canonicalPath(policyPath))) return "it is the policy file";
+  if (samePath(out, canonicalPath(registerPath))) return "it is the release register";
+  return null;
 }
 
 const relative = (p) => path.relative(ROOT, p).split(path.sep).join("/") || p;
@@ -462,6 +504,17 @@ async function main() {
   }
 
   const policyPath = resolvePolicyPath(options);
+
+  // Refused before anything is written or read: an output that lands in the input tree changes the
+  // very run that produces it. Exit 2 is an invocation error, the same class as an unknown flag.
+  if (options.resolution) {
+    const conflict = resolutionPathConflict(options.resolution, { target, policyPath, registerPath: REGISTER_PATH });
+    if (conflict) {
+      process.stderr.write(`predictions ${options.command}: --resolution=${options.resolution} refused: ${conflict}. Nothing was written.
+`);
+      return exitWith(EXIT_INVOCATION);
+    }
+  }
   const { register, state: registerState } = await readRegister();
   let packVersion = null;
   try {
