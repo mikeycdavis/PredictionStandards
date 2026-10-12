@@ -196,7 +196,7 @@ export function resolveVersion({ declared, catalog, register, registerState = "r
     outcome: "NOT_EVALUATED",
     failed: [],
     e1: { status: "fails", reasons: [] },
-    e2: { status: "not-attempted", reasons: [], mismatched: [], removed: [], unanswerable: [] },
+    e2: { status: "not-attempted", reasons: [], mismatched: [], removed: [], unanswerable: [], incomplete: [] },
     e3: { status: "not-attempted", bound: null, reasons: [], offending: [] },
   };
 
@@ -236,10 +236,24 @@ export function resolveVersion({ declared, catalog, register, registerState = "r
       if (typeof digest !== "string" || !HEX_DIGEST.test(digest)) e2.unanswerable.push(id);
       else if (digest !== ruleDigest(rule)) e2.mismatched.push(id);
     }
+    // The entry must account for every rule the catalog says existed by this release. A rule the
+    // catalog introduced at or before the declared version, and the entry does not record, means the
+    // register no longer states the complete rule set it attests: deleting one entry would otherwise
+    // shrink E2's surface silently (D4 makes "recorded ids" the surface, which only holds if the
+    // record is complete). It is absent evidence, not a measured change, so it is unanswerable (D7).
+    // Rules introduced AFTER the declared version are not required: that is E3's business.
+    for (const rule of catalog.rules.values()) {
+      const cmp = compareVersions(rule.introducedIn, declared);
+      if (cmp !== null && cmp <= 0 && !Object.prototype.hasOwnProperty.call(recorded, rule.id)) {
+        e2.incomplete.push(rule.id);
+      }
+    }
+    e2.incomplete.sort();
     if (e2.removed.length > 0) e2.reasons.push("rule-removed");
     if (e2.mismatched.length > 0) e2.reasons.push("digest-mismatch");
     if (!comparable) e2.reasons.push("digest-scheme-unrecognised");
     if (e2.unanswerable.length > 0) e2.reasons.push("digest-unusable");
+    if (e2.incomplete.length > 0) e2.reasons.push("recorded-set-incomplete");
   }
   // A measured change outranks an unanswerable question: the pack answered, and said "changed".
   if (e2.removed.length > 0 || e2.mismatched.length > 0) e2.status = "changed";
@@ -297,7 +311,7 @@ export function describeFailure(doc) {
     const e = doc[key.toLowerCase()];
     let more = "";
     if (key === "E2") {
-      const ids = [...e.removed, ...e.mismatched, ...e.unanswerable];
+      const ids = [...e.removed, ...e.mismatched, ...e.unanswerable, ...e.incomplete];
       more = ids.length ? `: ${ids.slice(0, 5).join(", ")}${ids.length > 5 ? `, +${ids.length - 5} more` : ""}` : "";
     } else if (key === "E3") {
       more = e.offending.length

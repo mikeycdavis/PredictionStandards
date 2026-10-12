@@ -606,16 +606,54 @@ test("A16 a rule recorded for the release and deleted from the catalog is named"
   assert.ok(doc.e2.reasons.includes("rule-removed"));
 });
 
-test("E2 is restricted to the recorded ids: a rule added since the declared release is not an E2 fault", async () => {
-  const doc = await resolve("1.1.0", {
-    register: (() => {
-      const r = structuredClone(readRegister());
-      const ids = Object.keys(r.releases["1.1.0"].rules);
-      delete r.releases["1.1.0"].rules[ids[0]];
-      return r;
-    })(),
-  });
+test("a rule introduced AFTER the declared release is not required in its entry (E3's business, not E2's)", async () => {
+  const doc = await resolve("1.0.0");
   assert.equal(doc.e2.status, "holds");
+  assert.deepEqual(doc.e2.incomplete, []);
+  assert.deepEqual(doc.failed, ["E3"], "the committed 1.0.0 entry covers the 50 rules that existed, and no more");
+});
+
+test("a catalog rule introduced at or before the release but missing from its entry makes E2 unanswerable (incomplete)", async () => {
+  const catalog = await loadCatalog();
+  const m = need();
+  for (const [version, pick] of [
+    ["1.2.0", (rules) => rules.find((r) => r.introducedIn === "1.0.0")],
+    ["1.1.0", (rules) => rules.find((r) => r.introducedIn === "1.1.0")], // introduced AT the release
+  ]) {
+    const victim = pick([...catalog.rules.values()]);
+    const register = structuredClone(readRegister());
+    delete register.releases[version].rules[victim.id];
+    const doc = m.resolveVersion({ declared: version, catalog, register, packVersion: VERSION });
+    assert.equal(doc.resolved, false, version);
+    assert.deepEqual(doc.failed, ["E2"], version);
+    assert.equal(doc.e2.status, "unanswerable", "incomplete evidence is not a measured change");
+    assert.deepEqual(doc.e2.reasons, ["recorded-set-incomplete"]);
+    assert.deepEqual(doc.e2.incomplete, [victim.id]);
+    assert.deepEqual(doc.e2.mismatched, []);
+    assert.deepEqual(doc.e2.removed, []);
+  }
+});
+
+test("a measured change outranks incompleteness when both occur", async () => {
+  const m = need();
+  const catalog = await loadCatalog(catalogDir({ mutateRule: (r) => r.id === "falsifiability.declared" && (r.severity = r.severity === "error" ? "info" : "error") }));
+  const register = structuredClone(readRegister());
+  const other = Object.keys(register.releases["1.2.0"].rules).find((id) => id !== "falsifiability.declared");
+  delete register.releases["1.2.0"].rules[other];
+  const doc = m.resolveVersion({ declared: "1.2.0", catalog, register, packVersion: VERSION });
+  assert.equal(doc.e2.status, "changed");
+  assert.deepEqual(doc.e2.reasons, ["digest-mismatch", "recorded-set-incomplete"]);
+});
+
+test("CLI: an entry missing one rule does not resolve (exit 2, E2)", () => {
+  const register = readRegister();
+  const victim = Object.keys(register.releases["1.2.0"].rules)[0];
+  delete register.releases["1.2.0"].rules[victim];
+  const r = runDeclared({ pack: makePack({ register }), version: "1.2.0" });
+  assert.equal(r.status, 2, r.stderr);
+  assert.deepEqual(r.doc.failed, ["E2"]);
+  assert.deepEqual(r.doc.e2.incomplete, [victim]);
+  assert.match(r.stderr, /recorded-set-incomplete/);
 });
 
 // ---------------------------------------------------------------------------
