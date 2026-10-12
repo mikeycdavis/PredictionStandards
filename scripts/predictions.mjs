@@ -35,7 +35,7 @@ import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { existsSync, lstatSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
 
 import { loadCatalog, assertBindings, coverage, CatalogError, CATALOG_DIR } from "./catalog.mjs";
 import {
@@ -321,6 +321,16 @@ function readSet({ target, policyPath, policyCandidates = [] }, unenumerable = [
     expanded.push(entry);
     if (!entry.dir) continue;
     const via = entry.why.split(",")[0];
+    // loadRecords() uses a recursive readdir, which FOLLOWS directory symlinks (verified on Node 18,
+    // 20 and 24: a cycle is walked until the OS refuses). The guard must see what that scan sees, so
+    // a symlinked directory is guarded as a directory (anything written under it is read as a
+    // record) and walked once by its real path; the visited set is what ends a cycle.
+    const visited = new Set();
+    try {
+      visited.add(realpathSync.native(entry.p));
+    } catch {
+      // handled by the top-level readdir below
+    }
     const walk = (dir, top) => {
       let children;
       try {
@@ -335,8 +345,33 @@ function readSet({ target, policyPath, policyCandidates = [] }, unenumerable = [
       }
       for (const child of children) {
         const full = path.join(dir, child.name);
-        expanded.push({ p: full, why: `a file read by this run (${relative(full)}, reached through ${via})` });
-        if (child.isDirectory()) walk(full, false);
+        let isDir = child.isDirectory();
+        const isLink = child.isSymbolicLink();
+        if (isLink) {
+          try {
+            isDir = statSync(full).isDirectory();
+          } catch {
+            isDir = false; // dangling: read as a file path, which fails; nothing to walk
+          }
+        }
+        if (isLink && isDir) {
+          expanded.push({ p: full, dir: true, why: `a directory symlinked into the inputs (${relative(full)}, reached through ${via}), whose contents are read as records` });
+        } else {
+          expanded.push({ p: full, why: `a file read by this run (${relative(full)}, reached through ${via})` });
+        }
+        if (isDir) {
+          let real;
+          try {
+            real = realpathSync.native(full);
+          } catch (error) {
+            unenumerable.push(`${relative(full)} (${error?.code ?? "error"})`);
+            continue;
+          }
+          if (!visited.has(real)) {
+            visited.add(real);
+            walk(full, false);
+          }
+        }
       }
     };
     walk(entry.p, true);

@@ -1353,3 +1353,68 @@ test("writeResolutionFile removes only a temp file it created", async () => {
   await assert.rejects(m.writeResolutionFile(target, "x", { tempPath: own }));
   assert.ok(!existsSync(own), "its own temp file was left behind");
 });
+
+// ---------------------------------------------------------------------------
+// symlinked DIRECTORIES are traversed by the record scan, so the guard traverses them (Codex P1 on 9b5979c)
+// ---------------------------------------------------------------------------
+
+function dirSymlink(target, link) {
+  try {
+    symlinkSync(target, link, "dir");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test("a directory symlink in the target to an outside records directory guards the records behind it", (t) => {
+  const target = recordsCopy();
+  const outside = scratch("ps-extdir-");
+  const rec = path.join(outside, "rec.json");
+  cpSync(path.join(ROOT, "examples/records/supported-prediction.json"), rec);
+  if (!dirSymlink(outside, path.join(target, "ext"))) return t.skip("directory symlinks are not available on this host");
+  const before = readFileSync(rec);
+  const policy = `--policy=${path.join(ROOT, "project-policy.yml")}`;
+  // an existing record behind the link
+  const a = run(ROOT, ["check", target, policy, `--as-of=${AS_OF}`, `--resolution=${rec}`]);
+  assert.equal(a.status, 2, a.stderr);
+  assert.match(a.stderr, /refused/);
+  assert.ok(readFileSync(rec).equals(before), "the external record was replaced");
+  // a NEW file in the linked directory would be read as a record by the same run
+  const fresh = path.join(outside, "fresh.json");
+  const b = run(ROOT, ["check", target, policy, `--as-of=${AS_OF}`, `--resolution=${fresh}`]);
+  assert.equal(b.status, 2, b.stderr);
+  assert.ok(!existsSync(fresh));
+});
+
+test("nested directory symlinks and a symlink cycle are walked without looping", (t) => {
+  const target = recordsCopy();
+  const outside = scratch("ps-extdir2-");
+  const rec = path.join(outside, "rec.json");
+  cpSync(path.join(ROOT, "examples/records/supported-prediction.json"), rec);
+  mkdirSync(path.join(target, "a", "b"), { recursive: true });
+  if (!dirSymlink(outside, path.join(target, "a", "b", "ext"))) return t.skip("directory symlinks are not available on this host");
+  assert.ok(dirSymlink(target, path.join(target, "a", "cycle")));
+  const before = readFileSync(rec);
+  const r = run(ROOT, ["check", target, `--policy=${path.join(ROOT, "project-policy.yml")}`, `--as-of=${AS_OF}`, `--resolution=${rec}`]);
+  assert.equal(r.status, 2, r.stderr);
+  assert.match(r.stderr, /refused/);
+  assert.ok(readFileSync(rec).equals(before));
+});
+
+test("several links back to the same ancestor are walked once each (no exponential walk)", (t) => {
+  const target = recordsCopy();
+  mkdirSync(path.join(target, "d"));
+  for (const name of ["l1", "l2", "l3"]) {
+    if (!dirSymlink(target, path.join(target, "d", name))) return t.skip("directory symlinks are not available on this host");
+  }
+  const out = path.join(target, "zz-resolution.json"); // inside the target: refused, but only after the whole walk
+  const r = spawnSync(
+    process.execPath,
+    [path.join(ROOT, "scripts/predictions.mjs"), "check", target, `--policy=${path.join(ROOT, "project-policy.yml")}`, `--resolution=${out}`],
+    { encoding: "utf8", timeout: 20000 },
+  );
+  assert.notEqual(r.signal, "SIGTERM", "the guard walk did not terminate");
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /refused/);
+});
