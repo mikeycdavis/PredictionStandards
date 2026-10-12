@@ -30,11 +30,11 @@
  * prediction, and the usual response to that is to weaken the check.
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, realpathSync } from "node:fs";
 
 import { loadCatalog, assertBindings, coverage, CatalogError, CATALOG_DIR } from "./catalog.mjs";
 import {
@@ -202,8 +202,61 @@ function canonicalPath(p) {
 const samePath = (a, b) => (process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b);
 const insideOrEqual = (child, parent) => {
   const rel = path.relative(parent, child);
-  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+  // Only `..` itself or `..<sep>...` is traversal. A child NAMED "..resolution.json" is inside.
+  const traversal = rel === ".." || rel.startsWith(`..${path.sep}`);
+  return rel === "" || (!traversal && !path.isAbsolute(rel));
 };
+
+const WINDOWS_DEVICE = /^(con|prn|aux|nul|conin$|conout$|com[0-9¹²³]|lpt[0-9¹²³])$/i;
+
+/**
+ * Why `--resolution` may not be WRITTEN at this path, or null. The destination must be a regular
+ * file or not exist: a device (`/dev/stdout`, `NUL`), a FIFO, a socket, a directory or a symlink
+ * would make the write land somewhere other than a file this run owns — in the worst case in front
+ * of the `--json` report on stdout, or blocking forever on a pipe with no reader. Windows device
+ * names and `\.\` / `\?\` namespaces are refused by name, since lstat on them is not a reliable
+ * test of what the write would reach.
+ */
+function resolutionDestinationProblem(outPath) {
+  const abs = path.resolve(outPath);
+  if (process.platform === "win32") {
+    const isSep = (c) => c === "/" || c === String.fromCharCode(92);
+    const namespaced = (p) => p.length >= 4 && isSep(p[0]) && isSep(p[1]) && (p[2] === "." || p[2] === "?") && isSep(p[3]);
+    if (namespaced(outPath) || namespaced(abs)) return "it is in the Windows device namespace";
+    const stem = path.basename(abs).split(".")[0].replace(/[ .]+$/, "");
+    if (WINDOWS_DEVICE.test(stem)) return "it is a reserved Windows device name";
+  }
+  let stat;
+  try {
+    stat = lstatSync(abs);
+  } catch (error) {
+    return error?.code === "ENOENT" || error?.code === "ENOTDIR" ? null : `it cannot be inspected (${error.code})`;
+  }
+  if (stat.isSymbolicLink()) return "it is a symbolic link";
+  if (!stat.isFile()) return "it exists and is not a regular file (directory, device, FIFO or socket)";
+  return null;
+}
+
+/**
+ * Write by creating a new file beside the destination and renaming it over. Rename replaces the
+ * directory entry and never writes through whatever the entry pointed at, so a destination that
+ * became a symlink, FIFO or device after validation is replaced rather than followed.
+ */
+async function writeResolutionFile(file, text) {
+  const abs = path.resolve(file);
+  const temp = path.join(path.dirname(abs), `.${path.basename(abs)}.${process.pid}.tmp`);
+  try {
+    await writeFile(temp, text, { flag: "wx" });
+    await rename(temp, abs);
+  } catch (error) {
+    try {
+      await unlink(temp);
+    } catch {
+      // nothing was created, or it is already gone
+    }
+    throw error;
+  }
+}
 
 /**
  * Everything a run reads, as a computed list rather than a remembered one: an output that lands on
@@ -532,8 +585,9 @@ async function main() {
   // very run that produces it. Exit 2 is an invocation error, the same class as an unknown flag.
   if (options.resolution) {
     const conflict = resolutionPathConflict(options.resolution, { target, policyPath });
-    if (conflict) {
-      process.stderr.write(`predictions ${options.command}: --resolution=${options.resolution} refused: ${conflict}. Nothing was written.
+    const problem = conflict ?? resolutionDestinationProblem(options.resolution);
+    if (problem) {
+      process.stderr.write(`predictions ${options.command}: --resolution=${options.resolution} refused: ${problem}. Nothing was written.
 `);
       return exitWith(EXIT_INVOCATION);
     }
@@ -557,7 +611,7 @@ async function main() {
   // enforcer's adapter and stays byte-identical whether or not this flag is given.
   if (options.resolution) {
     try {
-      await writeFile(options.resolution, JSON.stringify(resolution, null, 2) + "\n");
+      await writeResolutionFile(options.resolution, JSON.stringify(resolution, null, 2) + "\n");
     } catch (error) {
       process.stderr.write(`predictions ${options.command}: cannot write --resolution file: ${error.message}\n`);
       return exitWith(EXIT_INVOCATION);

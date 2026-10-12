@@ -30,6 +30,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  linkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -1030,4 +1031,99 @@ test("the pack VERSION still reads 1.2.0 after a refused --resolution=VERSION (t
   assert.equal(readFileSync(path.join(pack, "VERSION"), "utf8").trim(), VERSION);
   const ok = run(pack, ["check", path.join(pack, "examples/records"), `--as-of=${AS_OF}`]);
   assert.equal(ok.status, 0, ok.stderr);
+});
+
+// ---------------------------------------------------------------------------
+// dot-prefixed names are children, and the destination must be a plain file (Codex P2s on dd1011f)
+// ---------------------------------------------------------------------------
+
+test("a child whose NAME starts with two dots is inside the target, not 'outside via ..'", () => {
+  for (const name of ["..resolution.json", "...x", "..a", "..."]) {
+    const target = recordsCopy();
+    const before = bytesOf(target);
+    const r = runWith(target, path.join(target, name));
+    assert.equal(r.status, 2, `${name}: exit ${r.status}`);
+    assert.match(r.stderr, /refused: it is inside or equal to the target/, name);
+    assert.deepEqual(bytesOf(target), before, `${name}: the target changed`);
+  }
+});
+
+test("real traversal is still outside: the parent directory is refused as a directory, ../x works", () => {
+  const target = recordsCopy();
+  const parentResult = runWith(target, path.join(target, ".."));
+  assert.equal(parentResult.status, 2);
+  assert.match(parentResult.stderr, /not a regular file/);
+  const sibling = path.join(target, "..", `ps-sibling-${process.pid}.json`);
+  tmpDirs.push(sibling);
+  const ok = runWith(target, sibling);
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.equal(JSON.parse(readFileSync(sibling, "utf8")).resolved, true);
+});
+
+test("a directory is refused as a destination", () => {
+  const dir = scratch("ps-destdir-");
+  const r = runWith(recordsCopy(), dir);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /not a regular file/);
+});
+
+test("devices are refused and the --json report is still the only thing on stdout", () => {
+  const BS = String.fromCharCode(92);
+  const devices = process.platform === "win32" ? ["NUL", "CON", "nul.json", BS + BS + "." + BS + "pipe" + BS + "ps-x"] : ["/dev/null", "/dev/stdout", "/dev/stderr"];
+  const base = run(ROOT, ["check", path.join(ROOT, "examples/records"), `--policy=${path.join(ROOT, "project-policy.yml")}`, `--as-of=${AS_OF}`, "--json"]);
+  for (const device of devices) {
+    const r = runWith(path.join(ROOT, "examples/records"), device, ["--json"]);
+    assert.equal(r.status, 2, `${device}: exit ${r.status}`);
+    assert.match(r.stderr, /refused/, device);
+    assert.equal(r.stdout, "", `${device}: wrote to stdout`);
+  }
+  // and without a device, stdout is byte-identical to the unflagged run
+  const out = path.join(scratch("ps-dev-"), "r.json");
+  assert.equal(runWith(path.join(ROOT, "examples/records"), out, ["--json"]).stdout, base.stdout);
+});
+
+test("a FIFO is refused instead of blocking (POSIX)", (t) => {
+  if (process.platform === "win32") return t.skip("no mkfifo on Windows");
+  const fifo = path.join(scratch("ps-fifo-"), "pipe");
+  const made = spawnSync("mkfifo", [fifo]);
+  if (made.status !== 0) return t.skip("mkfifo unavailable");
+  const r = spawnSync(process.execPath, [path.join(ROOT, "scripts/predictions.mjs"), "check", path.join(ROOT, "examples/records"), `--resolution=${fifo}`], { encoding: "utf8", timeout: 20000 });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /not a regular file/);
+});
+
+test("a symlink destination is refused, even one that points at a plain file", (t) => {
+  const dir = scratch("ps-sym-");
+  const real = path.join(dir, "real.json");
+  writeFileSync(real, "keep");
+  const link = path.join(dir, "link.json");
+  try {
+    symlinkSync(real, link, "file");
+  } catch (error) {
+    return t.skip(`symlink not available: ${error.code}`);
+  }
+  const r = runWith(recordsCopy(), link);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /symbolic link/);
+  assert.equal(readFileSync(real, "utf8"), "keep");
+});
+
+test("an existing plain file is replaced atomically: a hard link to the old content is untouched, no temp files remain", () => {
+  const dir = scratch("ps-replace-");
+  const dest = path.join(dir, "r.json");
+  const peer = path.join(dir, "peer.json");
+  writeFileSync(dest, "old");
+  linkSync(dest, peer);
+  const r = runWith(recordsCopy(), dest);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(JSON.parse(readFileSync(dest, "utf8")).resolved, true);
+  assert.equal(readFileSync(peer, "utf8"), "old", "the file was rewritten in place instead of replaced");
+  assert.deepEqual(readdirSync(dir).sort(), ["peer.json", "r.json"]);
+});
+
+test("a failed write leaves no temp file and exits 2", () => {
+  const dir = scratch("ps-nodir-");
+  const r = runWith(recordsCopy(), path.join(dir, "missing", "r.json"));
+  assert.equal(r.status, 2);
+  assert.deepEqual(readdirSync(dir), []);
 });
