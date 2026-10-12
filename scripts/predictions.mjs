@@ -197,7 +197,11 @@ function canonicalPath(p) {
     try {
       const real = realpathSync.native(head);
       return path.join(real, ...tail.reverse());
-    } catch {
+    } catch (error) {
+      // Only "this component does not exist (yet)" lets us climb. Anything else (EACCES, ELOOP, ...)
+      // means the real location is unknown, and a guess would be a lexical path that a symlink
+      // could contradict: fail closed instead.
+      if (error?.code !== "ENOENT" && error?.code !== "ENOTDIR") throw error;
       const parent = path.dirname(head);
       if (parent === head) return path.resolve(p);
       tail.push(path.basename(head));
@@ -273,7 +277,7 @@ async function writeResolutionFile(file, text) {
  *   file entries are guarded by equality, directory entries by containment.
  *   The target is guarded as a tree: every .json under it is read as a record.
  */
-function readSet({ target, policyPath }) {
+function readSet({ target, policyPath }, unenumerable = []) {
   const entries = [
     { p: target, dir: true, why: `the target (${relative(target)}), where every .json is read as a record` },
     { p: policyPath, why: "the policy file" },
@@ -294,15 +298,26 @@ function readSet({ target, policyPath }) {
   for (const entry of entries.filter((e) => e.p)) {
     expanded.push(entry);
     if (!entry.dir) continue;
-    let names = [];
-    try {
-      names = readdirSync(entry.p, { recursive: true });
-    } catch {
-      // a target that is a single file, or does not exist yet, has nothing to enumerate
-    }
-    for (const name of names) {
-      expanded.push({ p: path.join(entry.p, String(name)), why: `a file read by this run (${relative(path.join(entry.p, String(name)))}, reached through ${entry.why.split(",")[0]})` });
-    }
+    const via = entry.why.split(",")[0];
+    const walk = (dir, top) => {
+      let children;
+      try {
+        children = readdirSync(dir, { withFileTypes: true });
+      } catch (error) {
+        // A target that is a single file or does not exist has nothing to enumerate. Any other
+        // failure (EACCES, ...) means inputs may exist that we could not see; that is reported, not
+        // swallowed, and the caller refuses: a guard that silently shrinks is not a guard.
+        if (top && (error?.code === "ENOENT" || error?.code === "ENOTDIR")) return;
+        unenumerable.push(`${relative(dir)} (${error?.code ?? "error"})`);
+        return;
+      }
+      for (const child of children) {
+        const full = path.join(dir, child.name);
+        expanded.push({ p: full, why: `a file read by this run (${relative(full)}, reached through ${via})` });
+        if (child.isDirectory()) walk(full, false);
+      }
+    };
+    walk(entry.p, true);
   }
   return expanded;
 }
@@ -314,13 +329,22 @@ function readSet({ target, policyPath }) {
  * must not land on anything the run reads.
  */
 function resolutionPathConflict(outPath, context) {
-  const out = canonicalPath(outPath);
-  for (const entry of readSet(context)) {
-    const input = canonicalPath(entry.p);
-    const hit = entry.dir ? insideOrEqual(out, input) : samePath(out, input);
-    if (hit) return entry.dir ? `it is inside or equal to ${entry.why}` : `it is ${entry.why}`;
+  try {
+    const out = canonicalPath(outPath);
+    const unenumerable = [];
+    const entries = readSet(context, unenumerable);
+    for (const entry of entries) {
+      const input = canonicalPath(entry.p);
+      const hit = entry.dir ? insideOrEqual(out, input) : samePath(out, input);
+      if (hit) return entry.dir ? `it is inside or equal to ${entry.why}` : `it is ${entry.why}`;
+    }
+    if (unenumerable.length > 0) {
+      return `the inputs of this run cannot be enumerated (${unenumerable.slice(0, 3).join(", ")}), so the output cannot be proven to be outside them`;
+    }
+    return null;
+  } catch (error) {
+    return `a path involved cannot be resolved, so the output cannot be proven to be outside the inputs (${error?.code ?? error?.message})`;
   }
-  return null;
 }
 
 const relative = (p) => path.relative(ROOT, p).split(path.sep).join("/") || p;

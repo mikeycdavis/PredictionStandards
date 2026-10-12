@@ -31,6 +31,7 @@ import {
   statSync,
   symlinkSync,
   linkSync,
+  chmodSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -1234,4 +1235,68 @@ test("a supported one-record check is unaffected by a refused resolution onto it
   assert.equal(bad.status, 2);
   const ok = run(ROOT, ["check", target, policy, `--as-of=${AS_OF}`]);
   assert.equal(ok.status, 0, ok.stderr);
+});
+
+// ---------------------------------------------------------------------------
+// the guard fails closed when it cannot enumerate an input tree (Codex P1 on c5968e4)
+// ---------------------------------------------------------------------------
+
+test("an unreadable subdirectory neither hides a readable symlinked input nor lets the guard shrink silently", (t) => {
+  if (process.platform === "win32" || (typeof process.getuid === "function" && process.getuid() === 0)) {
+    return t.skip("needs a non-root POSIX user so that chmod 000 is enforced");
+  }
+  const target = scratch("ps-locked-");
+  const backing = path.join(scratch("ps-backing2-"), "supported-prediction.json");
+  cpSync(path.join(ROOT, "examples/records/supported-prediction.json"), backing);
+  try {
+    symlinkSync(backing, path.join(target, "a.json"), "file");
+  } catch {
+    return t.skip("file symlinks are not available on this host");
+  }
+  const locked = path.join(target, "locked");
+  mkdirSync(locked);
+  chmodSync(locked, 0o000);
+  try {
+    const before = readFileSync(backing);
+    const r = run(ROOT, [
+      "check",
+      target,
+      `--policy=${path.join(ROOT, "project-policy.yml")}`,
+      `--as-of=${AS_OF}`,
+      `--resolution=${backing}`,
+    ]);
+    assert.equal(r.status, 2, r.stderr);
+    assert.match(r.stderr, /refused: it is a file read by this run/, "the readable symlink must still be found");
+    assert.ok(readFileSync(backing).equals(before), "the backing record was replaced");
+    // and an output that matches nothing found still fails closed: the unreadable tree may hold inputs
+    const elsewhere = path.join(scratch("ps-else-"), "r.json");
+    const r2 = run(ROOT, ["check", target, `--policy=${path.join(ROOT, "project-policy.yml")}`, `--as-of=${AS_OF}`, `--resolution=${elsewhere}`]);
+    assert.equal(r2.status, 2);
+    assert.match(r2.stderr, /refused: .*cannot be enumerated/);
+    assert.ok(!existsSync(elsewhere));
+  } finally {
+    chmodSync(locked, 0o755);
+  }
+});
+
+test("a missing or single-file target is still enumerable (nothing to fail closed on)", () => {
+  const rec = path.join(ROOT, "examples/records/supported-prediction.json");
+  const out = path.join(scratch("ps-single-"), "r.json");
+  const r = run(ROOT, ["check", rec, `--policy=${path.join(ROOT, "project-policy.yml")}`, `--as-of=${AS_OF}`, `--resolution=${out}`]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(out));
+});
+
+test("a symlinked record in a nested subdirectory of the target is guarded too", (t) => {
+  const target = recordsCopy();
+  mkdirSync(path.join(target, "deep", "er"), { recursive: true });
+  const link = path.join(target, "deep", "er", "n.json");
+  cpSync(path.join(ROOT, "examples/records/supported-prediction.json"), link);
+  const backing = symlinkInput(link);
+  if (!backing) return t.skip("file symlinks are not available on this host");
+  const before = readFileSync(backing);
+  const r = runWith(target, backing);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /refused: it is a file read by this run/);
+  assert.ok(readFileSync(backing).equals(before));
 });
