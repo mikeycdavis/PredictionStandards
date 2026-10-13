@@ -27,6 +27,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -1718,4 +1719,57 @@ test("a RELATIVE destination is resolved physically against the working director
   assert.equal(r.status, 0, r.stderr);
   assert.ok(existsSync(path.join(other, "r.json")), "written where the OS resolves link/..");
   assert.ok(!existsSync(path.join(cwd, "r.json")), "written where a lexical collapse would put it");
+});
+
+// ---------------------------------------------------------------------------
+// a component followed by anything must be a directory (Codex P2 on cea933a)
+// ---------------------------------------------------------------------------
+
+test("a regular file followed by '..', '.' or a name is not a location: refused, nothing created", () => {
+  const dir = scratch("ps-notdir-");
+  const file = path.join(dir, "notdir");
+  writeFileSync(file, "x");
+  const sep = path.sep;
+  for (const spelling of [
+    file + sep + ".." + sep + "result.json",
+    file + sep + "." + sep + "result.json",
+    file + sep + "result.json",
+  ]) {
+    const r = runWith(recordsCopy(), spelling);
+    assert.equal(r.status, 2, `${spelling}: exit ${r.status} ${r.stderr}`);
+    assert.match(r.stderr, /refused/);
+    assert.ok(!existsSync(path.join(dir, "result.json")), `${spelling}: created a sibling`);
+  }
+  assert.throws(() => guard.physicalDestination(file + sep + ".." + sep + "result.json"), /not a directory/);
+  assert.throws(() => guard.resolveLocation(file + sep + "." + sep + "x"), /not a directory/);
+});
+
+test("a symlink to a file, or a dangling symlink, followed by '..' is refused; a symlink to a directory is followed physically", (t) => {
+  const dir = scratch("ps-linkdot-");
+  const file = path.join(dir, "f.txt");
+  writeFileSync(file, "x");
+  const real = path.join(dir, "real");
+  mkdirSync(path.join(real, "inner"), { recursive: true });
+  try {
+    symlinkSync(file, path.join(dir, "tofile"), "file");
+    symlinkSync(path.join(dir, "nowhere"), path.join(dir, "dangling"), "file");
+    symlinkSync(path.join(real, "inner"), path.join(dir, "todir"), "dir");
+  } catch {
+    return t.skip("symlinks are not available on this host");
+  }
+  const sep = path.sep;
+  assert.throws(() => guard.physicalDestination(dir + sep + "tofile" + sep + ".." + sep + "r.json"), /not a directory/);
+  assert.throws(() => guard.physicalDestination(dir + sep + "dangling" + sep + ".." + sep + "r.json"));
+  // todir -> real/inner, so todir/.. is real
+  assert.equal(guard.physicalDestination(dir + sep + "todir" + sep + ".." + sep + "r.json"), path.join(realpathSync(real), "r.json"));
+  const r = runWith(recordsCopy(), dir + sep + "tofile" + sep + ".." + sep + "r.json");
+  assert.equal(r.status, 2);
+  assert.ok(!existsSync(path.join(dir, "r.json")));
+});
+
+test("'.' after a component that does not exist is not a location either", () => {
+  const dir = scratch("ps-missdot-");
+  const sep = path.sep;
+  assert.throws(() => guard.resolveLocation(dir + sep + "missing" + sep + "." + sep + "x.json"), /does not exist/);
+  assert.throws(() => guard.physicalDestination(dir + sep + "." ), /does not name a file/);
 });

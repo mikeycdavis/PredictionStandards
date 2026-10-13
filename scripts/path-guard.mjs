@@ -74,7 +74,7 @@ function split(raw) {
   const names = abs
     .slice(root.length)
     .split(process.platform === "win32" ? /[\\/]+/ : /\/+/)
-    .filter((n) => n !== "" && n !== ".");
+    .filter((n) => n !== "");
   return { root, names };
 }
 
@@ -87,10 +87,20 @@ export function resolveLocation(p, { directory = false } = {}) {
   if (!directory) assertFilePath(p);
   let { root, names } = split(p);
   let cur = root;
+  let curIsDir = true;
   let hops = 0;
   const rest = [];
   while (names.length > 0) {
+    // Every component that is followed by another must be a directory, whatever the next
+    // component is (a name, `.` or `..`): the OS answers ENOTDIR for `file/..`, and so must we,
+    // rather than quietly taking the file's lexical parent.
+    if (!curIsDir) {
+      const error = new Error(`${cur} is not a directory, so ${p} cannot continue through it`);
+      error.code = "ENOTDIR";
+      throw error;
+    }
     const name = names.shift();
+    if (name === ".") continue;
     if (name === "..") {
       cur = path.dirname(cur);
       continue;
@@ -100,10 +110,13 @@ export function resolveLocation(p, { directory = false } = {}) {
     try {
       st = lstatSync(next);
     } catch (error) {
-      if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
-        // The OS fails on `missing/..`, so no tail with a parent step is a location at all.
-        // Collapsing it would give the guard and the writer two different answers.
-        if (names.includes("..")) throw invalid(`${p} steps through a component that does not exist`);
+      if (error?.code === "ENOENT") {
+        // The OS fails on `missing/..` and `missing/.`, so a tail with a parent or current-
+        // directory step is not a location at all. Collapsing it would give the guard and the
+        // writer two different answers.
+        if (names.includes("..") || names.includes(".")) {
+          throw invalid(`${p} steps through a component that does not exist`);
+        }
         rest.push(name, ...names);
         names = [];
         break;
@@ -120,10 +133,12 @@ export function resolveLocation(p, { directory = false } = {}) {
       const abs = path.isAbsolute(target) ? target : joinRaw(cur, target);
       const parts = split(abs);
       cur = parts.root;
+      curIsDir = true;
       names = [...parts.names, ...names];
       continue;
     }
     cur = next;
+    curIsDir = st.isDirectory();
   }
   return { anchor: cur, id: idOf(statSync(cur, { bigint: false })), rest };
 }
@@ -247,7 +262,7 @@ export function physicalDestination(p) {
   assertFilePath(p);
   const { root, names } = split(p);
   const last = names.pop();
-  if (last === undefined || last === "..") throw invalid(`${p} does not name a file`);
+  if (last === undefined || last === ".." || last === ".") throw invalid(`${p} does not name a file`);
   const parent = resolveLocation(root + names.join(path.sep));
   // parent.rest holds no ".." (resolveLocation refuses it), so this join normalises nothing: it
   // only concatenates, which is why the writer and the guard cannot disagree about the location.
