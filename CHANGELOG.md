@@ -19,6 +19,16 @@ Any change that weakens a rule's protection attributes (`level`, `nonExemptible`
 appear here naming the rule id, alongside the matching edit to `artifacts/integrity-baseline.json`.
 A test enforces this: weakening a rule silently is the manipulation Standard 18 prohibits.
 
+## [Unreleased]
+
+- **Declared-version resolution (ADR 0012, ST-27).** `predictions check|explain|status` now resolve
+  the policy's `standardVersion` before reading any record, against the new committed
+  `artifacts/release-register.json` (releases 1.0.0, 1.1.0, 1.2.0, each with per-rule digests and
+  provenance). An unresolvable version is `NOT_EVALUATED`, exit `2`. `--resolution=<path>` writes a
+  separate resolution document naming E1, E2 and E3 failures; `audit` keeps its exit codes and
+  reports the failure on stderr. `scripts/release-register.mjs print` prints a candidate register
+  entry and never writes. No rule, standard, `VERSION` or report-schema change.
+
 ## [1.2.0] — 2026-08-25
 
 Standards version 1.2.0, report schema **1.1.0**, record schema 1.1.0, adapter schemaVersion 1.0.0.

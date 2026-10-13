@@ -30,13 +30,14 @@
  * prediction, and the usual response to that is to weaken the check.
  */
 
-import { readFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
 
-import { loadCatalog, assertBindings, coverage, CatalogError } from "./catalog.mjs";
+import { loadCatalog, assertBindings, coverage, CatalogError, CATALOG_DIR } from "./catalog.mjs";
 import {
   evaluate,
   envelope,
@@ -45,6 +46,8 @@ import {
   STATUS,
 } from "./compliance.mjs";
 import { checkPolicy } from "./policy.mjs";
+import { firstConflict, physicalDestination } from "./path-guard.mjs";
+import { describeFailure, notAttempted, readRegister, resolveVersion, REGISTER_PATH } from "./release-register.mjs";
 import {
   EVALUATED_RULES,
   inspect,
@@ -82,6 +85,10 @@ function usage() {
   --as-of=<ISO>     Evaluate staleness and expiry against this instant (default: now).
                     Pin it to make a run reproducible.
   --json            Emit the structured report on stdout instead of the readable one.
+  --resolution=<path>
+                    Write the standardVersion resolution document (E1 existence, E2
+                    compatibility, E3 introduction bound) to <path>. Never changes stdout.
+                    Not valid with init.
   --strict          audit only: exit 1 when any finding needs attention.
   --dry-run         init only: report what would happen, write nothing.
   --force-overwrite=<path>
@@ -98,6 +105,7 @@ function parseArgs(argv) {
     policy: null,
     asOf: null,
     json: false,
+    resolution: null,
     strict: false,
     dryRun: false,
     forceOverwrite: [],
@@ -108,6 +116,10 @@ function parseArgs(argv) {
     else if (arg === "--dry-run") options.dryRun = true;
     else if (arg.startsWith("--policy=")) options.policy = arg.slice("--policy=".length);
     else if (arg.startsWith("--as-of=")) options.asOf = arg.slice("--as-of=".length);
+    else if (arg.startsWith("--resolution=")) {
+      options.resolution = arg.slice("--resolution=".length);
+      if (!options.resolution) throw new Error("--resolution needs a path");
+    }
     else if (arg.startsWith("--force-overwrite=")) options.forceOverwrite.push(arg.slice("--force-overwrite=".length));
     else if (arg.startsWith("--")) throw new Error(`unknown flag '${arg}'`);
     else if (options.command === null) options.command = arg;
@@ -117,6 +129,12 @@ function parseArgs(argv) {
   if (!options.command) throw new Error("a command is required");
   if (!["init", "audit", "check", "explain", "status"].includes(options.command)) {
     throw new Error(`unknown command '${options.command}'`);
+  }
+  if (options.resolution !== null && options.command === "init") {
+    // `init` resolves no policy version, so there is no document to write. Accepting the flag and
+    // exiting 0 would read as "the document was written"; refusing keeps a flag from being a
+    // silent no-op. check, explain, status and audit each write it.
+    throw new Error("--resolution does not apply to init: init resolves no standardVersion and writes no resolution document");
   }
   if (options.strict && options.command !== "audit") {
     // --strict changes an exit contract, and only audit's is hers to change. Allowing it on check
@@ -150,8 +168,15 @@ function parseArgs(argv) {
 }
 
 /** Find the policy: an explicit flag, then upward from the record, then this repository's own. */
-function resolvePolicyPath(options) {
-  if (options.policy) return options.policy;
+/**
+ * Every project-policy.yml path the search looks at, in order, up to and including the first that
+ * exists, whether or not it exists. A file created at an earlier candidate would be discovered by
+ * the NEXT run, so those names are inputs of this run even though nothing is there yet.
+ * Empty when --policy names the policy explicitly: nothing is searched then.
+ */
+function policySearchCandidates(options) {
+  if (options.policy) return [];
+  const candidates = [];
   let dir = path.resolve(options.target ?? ".");
   if (existsSync(dir) && !dir.endsWith(".json")) {
     // walk from the directory itself
@@ -160,15 +185,195 @@ function resolvePolicyPath(options) {
   }
   for (let i = 0; i < 12; i++) {
     const candidate = path.join(dir, "project-policy.yml");
-    if (existsSync(candidate)) return candidate;
+    candidates.push(candidate);
+    if (existsSync(candidate)) return candidates;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  const own = path.join(ROOT, "project-policy.yml");
-  return existsSync(own) ? own : null;
+  candidates.push(path.join(ROOT, "project-policy.yml"));
+  return candidates;
 }
 
+function resolvePolicyPath(options) {
+  if (options.policy) return options.policy;
+  const found = policySearchCandidates(options).find((c) => existsSync(c));
+  return found ?? null;
+}
+
+const WINDOWS_DEVICE = /^(con|prn|aux|nul|conin$|conout$|com[0-9¹²³]|lpt[0-9¹²³])$/i;
+
+/**
+ * Why `--resolution` may not be WRITTEN at this path, or null. The destination must be a regular
+ * file or not exist: a device (`/dev/stdout`, `NUL`), a FIFO, a socket, a directory or a symlink
+ * would make the write land somewhere other than a file this run owns — in the worst case in front
+ * of the `--json` report on stdout, or blocking forever on a pipe with no reader. Windows device
+ * names and `\.\` / `\?\` namespaces are refused by name, since lstat on them is not a reliable
+ * test of what the write would reach.
+ */
+function resolutionDestinationProblem(outPath) {
+  let abs;
+  try {
+    abs = physicalDestination(outPath);
+  } catch (error) {
+    return `its directory cannot be resolved (${error?.code ?? "error"})`;
+  }
+  if (process.platform === "win32") {
+    const isSep = (c) => c === "/" || c === String.fromCharCode(92);
+    const namespaced = (p) => p.length >= 4 && isSep(p[0]) && isSep(p[1]) && (p[2] === "." || p[2] === "?") && isSep(p[3]);
+    if (namespaced(outPath) || namespaced(abs)) return "it is in the Windows device namespace";
+    const stem = path.basename(abs).split(".")[0].replace(/[ .]+$/, "");
+    if (WINDOWS_DEVICE.test(stem)) return "it is a reserved Windows device name";
+  }
+  let stat;
+  try {
+    stat = lstatSync(abs);
+  } catch (error) {
+    return error?.code === "ENOENT" || error?.code === "ENOTDIR" ? null : `it cannot be inspected (${error.code})`;
+  }
+  if (stat.isSymbolicLink()) return "it is a symbolic link";
+  if (!stat.isFile()) return "it exists and is not a regular file (directory, device, FIFO or socket)";
+  return null;
+}
+
+/**
+ * Write by creating a new file beside the destination and renaming it over. Rename replaces the
+ * directory entry and never writes through whatever the entry pointed at, so a destination that
+ * became a symlink, FIFO or device after validation is replaced rather than followed.
+ */
+export async function writeResolutionFile(file, text, { tempPath } = {}) {
+  const abs = physicalDestination(file);
+  const temp = tempPath ?? path.join(path.dirname(abs), `.${path.basename(abs)}.${randomBytes(8).toString("hex")}.tmp`);
+  // Only a file THIS call created may be removed. A "wx" open that fails with EEXIST means the name
+  // belongs to someone else (a stale or concurrent file); unlinking it would destroy what we do not own.
+  let created = false;
+  try {
+    await writeFile(temp, text, { flag: "wx" });
+    created = true;
+    await rename(temp, abs);
+  } catch (error) {
+    if (created) {
+      try {
+        await unlink(temp);
+      } catch {
+        // already gone
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Everything a run reads, as a computed list rather than a remembered one: an output that lands on
+ * any of these changes the run that produces it, or the next one. Each entry is one line so that a
+ * mutant can remove it and a test can name it.
+ *
+ *   file entries are guarded by equality, directory entries by containment.
+ *   The target is guarded as a tree: every .json under it is read as a record.
+ */
+function readSet({ target, policyPath, policyCandidates = [] }, unenumerable = []) {
+  const entries = [
+    { p: target, dir: true, why: `the target (${relative(target)}), where every .json is read as a record` },
+    { p: policyPath, why: "the policy file" },
+    ...policyCandidates.map((c) => ({ p: c, why: `a project-policy.yml the policy search looks at (${relative(c)})` })),
+    { p: REGISTER_PATH, why: "the release register" },
+    { p: path.join(ROOT, "VERSION"), why: "the pack VERSION file" },
+    { p: CATALOG_DIR, dir: true, why: "the rule catalog (rules/), read on every run" },
+    { p: RECORD_SCHEMA, why: "the prediction-record schema" },
+    { p: POLICY_SCHEMA, why: "the project-policy schema" },
+    { p: path.join(ROOT, "scripts"), dir: true, why: "the scripts directory, the code being run" },
+  ];
+  // A directory is guarded by containment, which does not see a FILE inside it that is a symlink to
+  // somewhere else: the run reads the backing file, and a write onto the backing file would replace
+  // what the run is about to read. So every file under a guarded directory is also guarded as a
+  // file, and path-guard.mjs resolves each through the filesystem to the file actually read.
+  // (A hard link needs no such entry: the write is a rename, which replaces the destination's
+  // directory entry and never modifies the inode another name points at.)
+  const expanded = [];
+  for (const entry of entries.filter((e) => e.p)) {
+    expanded.push(entry);
+    if (!entry.dir) continue;
+    const via = entry.why.split(",")[0];
+    // loadRecords() uses a recursive readdir, which FOLLOWS directory symlinks (verified on Node 18,
+    // 20 and 24: a cycle is walked until the OS refuses). The guard must see what that scan sees, so
+    // a symlinked directory is guarded as a directory (anything written under it is read as a
+    // record) and walked once by its real path; the visited set is what ends a cycle.
+    // Identity (dev:ino), not path strings, so two names for one directory are one directory.
+    const identity = (st) => `${st.dev}:${st.ino}`;
+    const visited = new Set();
+    try {
+      visited.add(identity(statSync(entry.p)));
+    } catch {
+      // handled by the top-level readdir below
+    }
+    const walk = (dir, top) => {
+      let children;
+      try {
+        children = readdirSync(dir, { withFileTypes: true });
+      } catch (error) {
+        // A target that is a single file or does not exist has nothing to enumerate. Any other
+        // failure (EACCES, ...) means inputs may exist that we could not see; that is reported, not
+        // swallowed, and the caller refuses: a guard that silently shrinks is not a guard.
+        if (top && (error?.code === "ENOENT" || error?.code === "ENOTDIR")) return;
+        unenumerable.push(`${relative(dir)} (${error?.code ?? "error"})`);
+        return;
+      }
+      for (const child of children) {
+        const full = path.join(dir, child.name);
+        let isDir = child.isDirectory();
+        const isLink = child.isSymbolicLink();
+        if (isLink) {
+          try {
+            isDir = statSync(full).isDirectory();
+          } catch {
+            isDir = false; // dangling: read as a file path, which fails; nothing to walk
+          }
+        }
+        if (isLink && isDir) {
+          expanded.push({ p: full, dir: true, why: `a directory symlinked into the inputs (${relative(full)}, reached through ${via}), whose contents are read as records` });
+        } else {
+          expanded.push({ p: full, why: `a file read by this run (${relative(full)}, reached through ${via})` });
+        }
+        if (isDir) {
+          let real;
+          try {
+            real = identity(statSync(full));
+          } catch (error) {
+            unenumerable.push(`${relative(full)} (${error?.code ?? "error"})`);
+            continue;
+          }
+          if (!visited.has(real)) {
+            visited.add(real);
+            walk(full, false);
+          }
+        }
+      }
+    };
+    walk(entry.p, true);
+  }
+  return expanded;
+}
+
+/**
+ * Why `--resolution` may not name this path, or null. The record scan treats every .json under the
+ * target as a prediction record, so a document written there would be evaluated as an extra
+ * malformed record, and one written over an input would destroy it before it was read. An output
+ * must not land on anything the run reads.
+ */
+function resolutionPathConflict(outPath, context, options = {}) {
+  try {
+    const unenumerable = [];
+    const entries = readSet(context, unenumerable);
+    const hit = firstConflict(outPath, entries, options);
+    if (hit) return hit.dir ? `it is inside or equal to ${hit.why}` : `it is ${hit.why}`;
+    if (unenumerable.length > 0) {
+      return `the inputs of this run cannot be enumerated (${unenumerable.slice(0, 3).join(", ")}), so the output cannot be proven to be outside them`;
+    }
+    return null;
+  } catch (error) {
+    return `a path involved cannot be resolved, so the output cannot be proven to be outside the inputs (${error?.code ?? error?.message})`;
+  }
+}
 const relative = (p) => path.relative(ROOT, p).split(path.sep).join("/") || p;
 
 /**
@@ -254,20 +459,40 @@ async function evaluateAll({ catalog, schema, policy, target, asOf, includeSerie
   return { reports, aggregate, status: aggregateStatus(reports.map((r) => r.status)), parameters };
 }
 
-/** Load the policy, or return the reason it could not be loaded. Never a verdict. */
-async function loadPolicy(policyPath, asOf) {
-  if (!policyPath) return { policy: null, error: "no project-policy.yml was found" };
-  const result = await checkPolicy(policyPath, POLICY_SCHEMA, asOf.slice(0, 10));
-  if (result.status === "invalid") {
-    return {
-      policy: null,
-      error: `${relative(policyPath)} is not valid: ${result.errors.map((e) => `${e.path || "(document)"} ${e.message}`).join("; ")}`,
-    };
+/**
+ * Load the policy, or return the reason it could not be loaded. Never a verdict.
+ *
+ * ADR 0012: this is also where the declared `standardVersion` is resolved, because it must be
+ * answered before a record is read and be the same answer for every target. `resolution` is
+ * attached here and read by the caller; neither `checkPolicy` nor `evaluate` knows about it. The
+ * inputs are the catalog and the register shipped with the pack, never the target.
+ */
+async function loadPolicy(policyPath, asOf, { catalog, register, registerState, packVersion }) {
+  if (!policyPath) {
+    return { policy: null, error: "no project-policy.yml was found", resolution: notAttempted("no-policy") };
   }
+  let result;
+  try {
+    result = await checkPolicy(policyPath, POLICY_SCHEMA, asOf.slice(0, 10));
+  } catch (cause) {
+    // A policy path that is missing, unreadable or a directory rejects here rather than returning
+    // "invalid". It is the same class of fault, and is routed the same way: a configuration error
+    // (exit 2) and a NOT_ATTEMPTED resolution document, never an uncaught exception.
+    const error = `${relative(policyPath)} cannot be read: ${cause?.code ?? cause?.message ?? "error"}`;
+    return { policy: null, error, resolution: { ...notAttempted("policy-unreadable", error), policy: relative(policyPath) } };
+  }
+  if (result.status === "invalid") {
+    const error = `${relative(policyPath)} is not valid: ${result.errors.map((e) => `${e.path || "(document)"} ${e.message}`).join("; ")}`;
+    return { policy: null, error, resolution: { ...notAttempted("policy-invalid", error), policy: relative(policyPath) } };
+  }
+  const resolution = {
+    ...resolveVersion({ declared: result.document.standardVersion, catalog, register, registerState, packVersion }),
+    policy: relative(policyPath),
+  };
   // A policy with compliance findings still loads. Those findings are real — an expired exception,
   // an exception against a non-exemptible rule — and the compliance engine reports them against the
   // rules they target rather than refusing to run.
-  return { policy: result.document, policyFindings: result.findings };
+  return { policy: result.document, policyFindings: result.findings, resolution };
 }
 
 /**
@@ -442,7 +667,43 @@ async function main() {
   }
 
   const policyPath = resolvePolicyPath(options);
-  const { policy, error: policyError } = await loadPolicy(policyPath, asOf);
+
+  // Refused before anything is written or read: an output that lands in the input tree changes the
+  // very run that produces it. Exit 2 is an invocation error, the same class as an unknown flag.
+  if (options.resolution) {
+    const conflict = resolutionPathConflict(options.resolution, { target, policyPath, policyCandidates: policySearchCandidates(options) });
+    const problem = conflict ?? resolutionDestinationProblem(options.resolution);
+    if (problem) {
+      process.stderr.write(`predictions ${options.command}: --resolution=${options.resolution} refused: ${problem}. Nothing was written.
+`);
+      return exitWith(EXIT_INVOCATION);
+    }
+  }
+  const { register, state: registerState } = await readRegister();
+  let packVersion = null;
+  try {
+    packVersion = (await readFile(path.join(ROOT, "VERSION"), "utf8")).trim();
+  } catch {
+    // E3 reports an unreadable pack version as its own reason; it is not a crash here.
+  }
+  const { policy, error: policyError, resolution } = await loadPolicy(policyPath, asOf, {
+    catalog,
+    register,
+    registerState,
+    packVersion,
+  });
+
+  // The resolution document is written before anything can exit, so a failed run still leaves it.
+  // It goes to a path the caller named and never to stdout: `check --json` stdout is parsed by the
+  // enforcer's adapter and stays byte-identical whether or not this flag is given.
+  if (options.resolution) {
+    try {
+      await writeResolutionFile(options.resolution, JSON.stringify(resolution, null, 2) + "\n");
+    } catch (error) {
+      process.stderr.write(`predictions ${options.command}: cannot write --resolution file: ${error.message}\n`);
+      return exitWith(EXIT_INVOCATION);
+    }
+  }
 
   // `audit` produces no verdict, so it needs no policy — but it does need the project's thresholds,
   // because a disagreement threshold or a confidence vocabulary is an input to *observing* anything
@@ -458,6 +719,30 @@ async function main() {
     process.stderr.write(`predictions ${options.command}: ${policyError}\n`);
     process.stderr.write("A policy that cannot be read is a configuration fault, not a failing prediction.\n");
     return exitWith(EXIT_INVOCATION);
+  }
+
+  // An unresolvable declared version is a configuration fault, never a compliance failure
+  // (ADR 0012 D6): NOT_EVALUATED, exit 2, before any record is read, with no report on stdout.
+  if (!auditing && resolution.attempted && !resolution.resolved) {
+    process.stderr.write(`predictions ${options.command}: NOT_EVALUATED: ${describeFailure(resolution)}\n`);
+    process.stderr.write(
+      "A declared version that cannot be resolved is a configuration fault, not a failing prediction. No record was read.\n",
+    );
+    return exitWith(EXIT_INVOCATION);
+  }
+
+  // `audit` keeps its established exit codes under a resolution fault (0, even with --strict: a
+  // missing or unresolvable policy never stopped it). Silence would then read as success, so the
+  // fault is carried in words here and in the --resolution document. A run with no policy at all
+  // is not announced: there was no declaration to resolve.
+  const auditResolutionNote =
+    auditing && (resolution.attempted ? !resolution.resolved : ["policy-invalid", "policy-unreadable"].includes(resolution.reason))
+      ? describeFailure(resolution)
+      : null;
+  if (auditResolutionNote) {
+    process.stderr.write(
+      `predictions audit: ${auditResolutionNote}. audit's exit status is unchanged and does NOT mean the version resolved.\n`,
+    );
   }
 
   let evaluation;
@@ -512,6 +797,7 @@ async function main() {
           ? `  Thresholds: from ${relative(policyPath)} (audit reads parameters only, and reaches no verdict)`
           : "  Thresholds: evaluator defaults (no policy found; audit reaches no verdict regardless)",
       );
+      if (auditResolutionNote) out.push(`  Version:    ${auditResolutionNote} (this exit status does not mean it resolved)`);
     } else if (policyPath) {
       out.push(`  Policy:     ${relative(policyPath)}`);
     }

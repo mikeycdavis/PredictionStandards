@@ -27,7 +27,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CATALOG_DIR = path.join(ROOT, "rules");
+export const CATALOG_DIR = path.join(ROOT, "rules");
 
 export const VALIDATION_TYPES = new Set([
   "structural",
