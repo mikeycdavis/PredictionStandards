@@ -501,7 +501,16 @@ async function loadPolicy(policyPath, asOf, { catalog, register, registerState, 
   if (!policyPath) {
     return { policy: null, error: "no project-policy.yml was found", resolution: notAttempted("no-policy") };
   }
-  const result = await checkPolicy(policyPath, POLICY_SCHEMA, asOf.slice(0, 10));
+  let result;
+  try {
+    result = await checkPolicy(policyPath, POLICY_SCHEMA, asOf.slice(0, 10));
+  } catch (cause) {
+    // A policy path that is missing, unreadable or a directory rejects here rather than returning
+    // "invalid". It is the same class of fault, and is routed the same way: a configuration error
+    // (exit 2) and a NOT_ATTEMPTED resolution document, never an uncaught exception.
+    const error = `${relative(policyPath)} cannot be read: ${cause?.code ?? cause?.message ?? "error"}`;
+    return { policy: null, error, resolution: { ...notAttempted("policy-unreadable", error), policy: relative(policyPath) } };
+  }
   if (result.status === "invalid") {
     const error = `${relative(policyPath)} is not valid: ${result.errors.map((e) => `${e.path || "(document)"} ${e.message}`).join("; ")}`;
     return { policy: null, error, resolution: { ...notAttempted("policy-invalid", error), policy: relative(policyPath) } };
@@ -757,7 +766,7 @@ async function main() {
   // fault is carried in words here and in the --resolution document. A run with no policy at all
   // is not announced: there was no declaration to resolve.
   const auditResolutionNote =
-    auditing && (resolution.attempted ? !resolution.resolved : resolution.reason === "policy-invalid")
+    auditing && (resolution.attempted ? !resolution.resolved : ["policy-invalid", "policy-unreadable"].includes(resolution.reason))
       ? describeFailure(resolution)
       : null;
   if (auditResolutionNote) {

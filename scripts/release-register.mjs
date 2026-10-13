@@ -119,7 +119,10 @@ export function catalogDigests(catalog) {
 
 function parseVersion(v) {
   const m = typeof v === "string" ? STRICT_SEMVER.exec(v) : null;
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+  // Kept as digit strings: the policy schema admits integers of any length, and Number() would
+  // make components past 2^53 compare equal. STRICT_SEMVER forbids leading zeros, so a longer digit
+  // string is a larger number, and equal lengths compare lexicographically.
+  return m ? [m[1], m[2], m[3]] : null;
 }
 
 /** Numeric three-part comparison. Returns null when either side is not a strict x.y.z. */
@@ -127,7 +130,11 @@ export function compareVersions(a, b) {
   const pa = parseVersion(a);
   const pb = parseVersion(b);
   if (!pa || !pb) return null;
-  for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] < pb[i] ? -1 : 1;
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] === pb[i]) continue;
+    if (pa[i].length !== pb[i].length) return pa[i].length < pb[i].length ? -1 : 1;
+    return pa[i] < pb[i] ? -1 : 1;
+  }
   return 0;
 }
 

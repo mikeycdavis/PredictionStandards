@@ -1456,3 +1456,64 @@ test("several links back to the same ancestor are walked once each (no exponenti
   assert.equal(r.status, 2);
   assert.match(r.stderr, /refused/);
 });
+
+// ---------------------------------------------------------------------------
+// Codex P2s on 0dc8803: an unreadable explicit --policy, and exact version ordering
+// ---------------------------------------------------------------------------
+
+test("an explicit --policy that is missing or a directory is a configuration fault: exit 2, structured document", () => {
+  const dir = scratch("ps-badpol-");
+  for (const [name, policy] of [["missing", path.join(dir, "nope.yml")], ["a directory", dir]]) {
+    for (const command of ["check", "explain", "status"]) {
+      const out = path.join(scratch("ps-badpol-out-"), "r.json");
+      const r = run(ROOT, [command, path.join(ROOT, "examples/records"), `--policy=${policy}`, `--as-of=${AS_OF}`, `--resolution=${out}`]);
+      assert.equal(r.status, 2, `${command} ${name}: exit ${r.status}: ${r.stderr.slice(0, 200)}`);
+      assert.match(r.stderr, /cannot be read/, `${command} ${name}`);
+      assert.doesNotMatch(r.stderr, /at async|node:internal/, "an uncaught exception reached the user");
+      const doc = JSON.parse(readFileSync(out, "utf8"));
+      assert.equal(doc.attempted, false);
+      assert.equal(doc.reason, "policy-unreadable");
+      assert.equal(doc.outcome, "NOT_ATTEMPTED");
+    }
+    // without --resolution it is the same exit
+    const bare = run(ROOT, ["check", path.join(ROOT, "examples/records"), `--policy=${policy}`, `--as-of=${AS_OF}`]);
+    assert.equal(bare.status, 2, name);
+  }
+});
+
+test("audit tolerates an unreadable explicit policy as it does an invalid one: exit 0, said distinctly", () => {
+  const dir = scratch("ps-badpol2-");
+  const out = path.join(scratch("ps-badpol2-out-"), "r.json");
+  const r = run(ROOT, ["audit", path.join(ROOT, "examples/records"), `--policy=${path.join(dir, "nope.yml")}`, `--as-of=${AS_OF}`, `--resolution=${out}`]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /not resolved/);
+  assert.equal(JSON.parse(readFileSync(out, "utf8")).reason, "policy-unreadable");
+});
+
+test("versions are compared exactly, beyond Number's safe integer range", async () => {
+  const m = need();
+  assert.equal(m.compareVersions("9007199254740993.0.0", "9007199254740992.0.0"), 1);
+  assert.equal(m.compareVersions("9007199254740992.0.0", "9007199254740993.0.0"), -1);
+  assert.equal(m.compareVersions("1.0.99999999999999999999", "1.0.100000000000000000000"), -1);
+  assert.equal(m.compareVersions("1.10.0", "1.9.0"), 1);
+  assert.equal(m.compareVersions("1.2.0", "1.2.0"), 0);
+  assert.equal(m.compareVersions("0.0.0", "0.0.1"), -1);
+  assert.equal(m.compareVersions("1.2", "1.2.0"), null);
+});
+
+test("E3 does not hold for a rule introduced one past the declared version beyond the safe integer range", async () => {
+  const m = need();
+  const huge = "9007199254740993.0.0";
+  const declared = "9007199254740992.0.0";
+  const dir = catalogDir({ mutateRule: (r) => r.id === "falsifiability.declared" && (r.introducedIn = huge) });
+  const catalog = await loadCatalog(dir);
+  const rules = m.catalogDigests(catalog);
+  const register = { digestScheme: m.DIGEST_SCHEME, releases: { [declared]: { provenance: {}, rules } } };
+  const doc = m.resolveVersion({ declared, catalog, register, packVersion: "9007199254740994.0.0" });
+  assert.deepEqual(doc.failed, ["E3"]);
+  assert.deepEqual(doc.e3.reasons, ["rule-newer-than-declared"]);
+  assert.equal(m.introductionBound(catalog), huge);
+  // and declared > VERSION is exact too
+  const over = m.resolveVersion({ declared: huge, catalog, register: { digestScheme: m.DIGEST_SCHEME, releases: { [huge]: { provenance: {}, rules } } }, packVersion: declared });
+  assert.ok(over.e3.reasons.includes("declared-exceeds-pack-version"));
+});
