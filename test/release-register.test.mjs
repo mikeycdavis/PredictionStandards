@@ -1092,7 +1092,7 @@ test("real traversal is still outside: the parent directory is refused as a dire
   const target = recordsCopy();
   const parentResult = runWith(target, path.join(target, ".."));
   assert.equal(parentResult.status, 2);
-  assert.match(parentResult.stderr, /not a regular file/);
+  assert.match(parentResult.stderr, /refused/);
   const sibling = path.join(target, "..", `ps-sibling-${process.pid}.json`);
   tmpDirs.push(sibling);
   const ok = runWith(target, sibling);
@@ -1609,4 +1609,113 @@ test("when a directory cannot be probed the guard assumes it folds case (it can 
   const dir = path.join(scratch("ps-noprobe-"), "000");
   mkdirSync(dir);
   assert.equal(guard.directoryFoldsCase(dir), true);
+});
+
+// ---------------------------------------------------------------------------
+// one normalisation: the guard and the writer must name the same place (Codex P1 on d250743)
+// ---------------------------------------------------------------------------
+
+test("a destination stepping through a component that does not exist is refused, not collapsed onto VERSION", () => {
+  const pack = makePack();
+  const version = path.join(pack, "VERSION");
+  const before = readFileSync(version);
+  const sep = path.sep;
+  for (const spelling of [
+    pack + sep + "missing" + sep + ".." + sep + "VERSION",
+    pack + sep + "a" + sep + "b" + sep + ".." + sep + ".." + sep + "VERSION",
+    pack + sep + "missing" + sep + "." + sep + ".." + sep + "VERSION",
+  ]) {
+    const r = run(pack, ["check", path.join(pack, "examples/records"), `--as-of=${AS_OF}`, `--resolution=${spelling}`]);
+    assert.equal(r.status, 2, `${spelling}: exit ${r.status} ${r.stderr}`);
+    assert.match(r.stderr, /refused/);
+    assert.ok(readFileSync(version).equals(before), `${spelling}: VERSION was replaced`);
+  }
+});
+
+test("a trailing separator names a directory and is refused", () => {
+  const dir = scratch("ps-trail-");
+  const r = runWith(recordsCopy(), dir + path.sep + "r.json" + path.sep);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /refused/);
+  assert.ok(!existsSync(path.join(dir, "r.json")));
+});
+
+test("a target given with a trailing separator still works with --resolution", () => {
+  const target = recordsCopy();
+  const out = path.join(scratch("ps-trail2-"), "r.json");
+  const r = run(ROOT, ["check", target + path.sep, `--policy=${path.join(ROOT, "project-policy.yml")}`, `--as-of=${AS_OF}`, `--resolution=${out}`]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(out));
+});
+
+test("repeated separators and '.' components resolve to the same place the writer writes", () => {
+  const dir = scratch("ps-norm-");
+  const sep = path.sep;
+  const spelled = dir + sep + sep + "." + sep + "sub" + sep + "." + sep + "r.json";
+  mkdirSync(path.join(dir, "sub"));
+  const r = runWith(recordsCopy(), spelled);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(path.join(dir, "sub", "r.json")));
+});
+
+test("property: for every spelling the guard's location is the writer's location", () => {
+  const dir = scratch("ps-prop-");
+  mkdirSync(path.join(dir, "d"));
+  const sep = path.sep;
+  const spellings = [
+    path.join(dir, "d", "x.json"),
+    dir + sep + "d" + sep + sep + "x.json",
+    dir + sep + "d" + sep + "." + sep + "x.json",
+    dir + sep + "d" + sep + ".." + sep + "d" + sep + "x.json",
+    dir + sep + "new" + sep + "x.json",
+    dir + sep + "x.json",
+  ];
+  for (const spelling of spellings) {
+    const loc = guard.resolveLocation(spelling);
+    const written = guard.physicalDestination(spelling);
+    const again = guard.resolveLocation(written);
+    assert.deepEqual([again.id, again.rest, again.anchor], [loc.id, loc.rest, loc.anchor], spelling);
+  }
+  assert.throws(() => guard.physicalDestination(dir + sep + "missing" + sep + ".." + sep + "x.json"), /does not exist|steps through/);
+  assert.throws(() => guard.physicalDestination(dir + sep + ".."), /does not name a file/);
+});
+
+test("link targets containing '..' are resolved physically, not lexically (Linux)", (t) => {
+  const root = scratch("ps-lt-");
+  const other = scratch("ps-lt-other-");
+  const deep = path.join(other, "deep");
+  mkdirSync(deep);
+  try {
+    symlinkSync(deep, path.join(root, "hop"), "dir"); // hop -> other/deep
+    symlinkSync("hop" + path.sep + ".." + path.sep + "m.json", path.join(root, "rec.json"), "file");
+  } catch {
+    return t.skip("symlinks are not available on this host");
+  }
+  // rec.json -> hop/../m.json. Physically hop/.. is other/, so this is other/m.json; a lexical join
+  // would say root/m.json.
+  const loc = guard.resolveLocation(path.join(root, "rec.json"));
+  const physical = guard.resolveLocation(path.join(other, "m.json"));
+  const lexical = guard.resolveLocation(path.join(root, "m.json"));
+  assert.deepEqual([loc.id, loc.rest], [physical.id, physical.rest]);
+  assert.notDeepEqual([loc.id, loc.rest], [lexical.id, lexical.rest]);
+});
+
+test("a RELATIVE destination is resolved physically against the working directory (Linux)", (t) => {
+  const cwd = scratch("ps-relcwd-");
+  const other = scratch("ps-relother-");
+  const deep = path.join(other, "deep");
+  mkdirSync(deep);
+  try {
+    symlinkSync(deep, path.join(cwd, "link"), "dir");
+  } catch {
+    return t.skip("directory symlinks are not available on this host");
+  }
+  const r = spawnSync(
+    process.execPath,
+    [path.join(ROOT, "scripts/predictions.mjs"), "check", path.join(ROOT, "examples/records"), `--as-of=${AS_OF}`, `--resolution=link${path.sep}..${path.sep}r.json`],
+    { cwd, encoding: "utf8" },
+  );
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(path.join(other, "r.json")), "written where the OS resolves link/..");
+  assert.ok(!existsSync(path.join(cwd, "r.json")), "written where a lexical collapse would put it");
 });

@@ -38,8 +38,38 @@ const MAX_HOPS = 40;
 
 const idOf = (stat) => `${stat.dev}:${stat.ino}`;
 
+const BS = String.fromCharCode(92);
+
+function invalid(message) {
+  const error = new Error(message);
+  error.code = "EINVAL";
+  return error;
+}
+
+/**
+ * Join a base directory and a possibly relative name WITHOUT normalising. path.join and
+ * path.resolve collapse `..` lexically, which is wrong whenever the component before it is a
+ * symlink or does not exist; the only normalisation allowed anywhere in this module is
+ * resolveLocation's, which follows the filesystem.
+ */
+function joinRaw(base, name) {
+  return base.endsWith(path.sep) ? base + name : base + path.sep + name;
+}
+
+/** A path a USER supplied for a file: a trailing separator names a directory, which is not one. */
+function assertFilePath(raw) {
+  if (typeof raw !== "string" || raw === "") throw invalid("empty path");
+  if (raw.endsWith("/") || (process.platform === "win32" && raw.endsWith(BS))) {
+    throw invalid(`${raw} names a directory, not a file`);
+  }
+}
+
 function split(raw) {
-  const abs = path.isAbsolute(raw) ? raw : path.join(process.cwd(), raw);
+  if (typeof raw !== "string" || raw === "") throw invalid("empty path");
+  if (process.platform === "win32" && /^[A-Za-z]:/.test(raw) && raw[2] !== "/" && raw[2] !== BS) {
+    throw invalid(`${raw} is drive-relative; its meaning depends on a per-drive current directory`);
+  }
+  const abs = path.isAbsolute(raw) ? raw : joinRaw(process.cwd(), raw);
   const { root } = path.parse(abs);
   const names = abs
     .slice(root.length)
@@ -53,7 +83,8 @@ function split(raw) {
  * dangling one's textual target), and the names after it that do not exist yet.
  * Throws on anything other than "does not exist" (EACCES, ELOOP...): the caller fails closed.
  */
-export function resolveLocation(p) {
+export function resolveLocation(p, { directory = false } = {}) {
+  if (!directory) assertFilePath(p);
   let { root, names } = split(p);
   let cur = root;
   let hops = 0;
@@ -70,6 +101,9 @@ export function resolveLocation(p) {
       st = lstatSync(next);
     } catch (error) {
       if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
+        // The OS fails on `missing/..`, so no tail with a parent step is a location at all.
+        // Collapsing it would give the guard and the writer two different answers.
+        if (names.includes("..")) throw invalid(`${p} steps through a component that does not exist`);
         rest.push(name, ...names);
         names = [];
         break;
@@ -83,7 +117,7 @@ export function resolveLocation(p) {
         throw error;
       }
       const target = readlinkSync(next);
-      const abs = path.isAbsolute(target) ? target : path.join(cur, target);
+      const abs = path.isAbsolute(target) ? target : joinRaw(cur, target);
       const parts = split(abs);
       cur = parts.root;
       names = [...parts.names, ...names];
@@ -197,7 +231,7 @@ export function locationInside(out, dir, folds = directoryFoldsCase) {
 export function firstConflict(outPath, entries, { folds = directoryFoldsCase } = {}) {
   const out = resolveLocation(outPath);
   for (const entry of entries) {
-    const loc = resolveLocation(entry.p);
+    const loc = resolveLocation(entry.p, { directory: entry.dir === true });
     const hit = entry.dir ? locationInside(out, loc, folds) : sameLocation(out, loc, folds);
     if (hit) return entry;
   }
@@ -210,9 +244,12 @@ export function firstConflict(outPath, entries, { folds = directoryFoldsCase } =
  * collapse), and the final name left alone so a symlink AT that name is still seen as one.
  */
 export function physicalDestination(p) {
+  assertFilePath(p);
   const { root, names } = split(p);
   const last = names.pop();
-  if (last === undefined || last === "..") return path.resolve(p);
+  if (last === undefined || last === "..") throw invalid(`${p} does not name a file`);
   const parent = resolveLocation(root + names.join(path.sep));
+  // parent.rest holds no ".." (resolveLocation refuses it), so this join normalises nothing: it
+  // only concatenates, which is why the writer and the guard cannot disagree about the location.
   return path.join(parent.anchor, ...parent.rest, last);
 }
