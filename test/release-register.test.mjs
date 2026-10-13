@@ -1517,3 +1517,96 @@ test("E3 does not hold for a rule introduced one past the declared version beyon
   const over = m.resolveVersion({ declared: huge, catalog, register: { digestScheme: m.DIGEST_SCHEME, releases: { [huge]: { provenance: {}, rules } } }, packVersion: declared });
   assert.ok(over.e3.reasons.includes("declared-exceeds-pack-version"));
 });
+
+// ---------------------------------------------------------------------------
+// the guard is identity + a per-directory case probe, not string comparison (Codex P2s on e41e441)
+// ---------------------------------------------------------------------------
+
+const guard = await import("../scripts/path-guard.mjs");
+
+test("pending names are compared under the case rules of their directory, found by probing it", () => {
+  const dir = scratch("ps-case-");
+  const entries = [{ p: path.join(dir, "project-policy.yml"), why: "x" }];
+  const upper = path.join(dir, "PROJECT-POLICY.YML");
+  assert.equal(guard.firstConflict(upper, entries, { folds: () => true })?.why, "x", "a folding directory must conflict");
+  assert.equal(guard.firstConflict(upper, entries, { folds: () => false }), null, "a case-sensitive directory must not");
+  assert.ok(guard.firstConflict(path.join(dir, "project-policy.yml"), entries, { folds: () => false }), "the exact name always conflicts");
+});
+
+test("the probe answers for the directory, not for the platform name", () => {
+  const dir = scratch("ps-probe-");
+  writeFileSync(path.join(dir, "Probe.txt"), "x");
+  const actual = existsSync(path.join(dir, "pROBE.TXT"));
+  assert.equal(guard.directoryFoldsCase(dir), actual);
+});
+
+test("CLI: a differently-cased spelling of a not-yet-existing policy candidate follows the filesystem's rules", () => {
+  const root = scratch("ps-ci-");
+  const records = path.join(root, "records");
+  mkdirSync(records);
+  const record = path.join(records, "r.json");
+  cpSync(path.join(ROOT, "examples/records/supported-prediction.json"), record);
+  const upper = path.join(root, "PROJECT-POLICY.YML");
+  const r = run(ROOT, ["check", record, `--as-of=${AS_OF}`, `--resolution=${upper}`]);
+  if (guard.directoryFoldsCase(root)) {
+    assert.equal(r.status, 2, "a case-insensitive directory accepted a spelling of a policy candidate");
+    assert.match(r.stderr, /refused/);
+    assert.ok(!existsSync(upper));
+  } else {
+    assert.equal(r.status, 0, r.stderr); // a different name on a case-sensitive filesystem is a different file
+  }
+});
+
+test("an output that is a hard link to an input is refused by identity", () => {
+  const target = recordsCopy();
+  const out = path.join(scratch("ps-hl-"), "alias.json");
+  linkSync(path.join(target, "supported-prediction.json"), out);
+  const before = readFileSync(out);
+  const r = runWith(target, out);
+  assert.equal(r.status, 2, r.stderr);
+  assert.match(r.stderr, /refused/);
+  assert.ok(readFileSync(out).equals(before));
+});
+
+test("a dangling symlink record: its missing backing path is guarded, through chains and relative targets", (t) => {
+  const target = recordsCopy();
+  const outside = scratch("ps-dangle-");
+  const backing = path.join(outside, "missing.json");
+  const hop = path.join(outside, "hop.json");
+  try {
+    symlinkSync(backing, hop, "file"); // hop -> missing (dangling)
+    symlinkSync(hop, path.join(target, "a.json"), "file"); // a.json -> hop -> missing
+    symlinkSync(path.relative(target, path.join(outside, "rel-missing.json")), path.join(target, "b.json"), "file");
+  } catch {
+    return t.skip("file symlinks are not available on this host");
+  }
+  for (const out of [backing, hop, path.join(outside, "rel-missing.json")]) {
+    const r = runWith(target, out);
+    assert.equal(r.status, 2, `${out}: ${r.stderr}`);
+    assert.match(r.stderr, /refused/, out);
+    assert.ok(!existsSync(out) || out === hop, `${out} was created`);
+  }
+});
+
+test("a path through a symlinked parent and '..' is resolved physically", (t) => {
+  const target = recordsCopy();
+  const outside = scratch("ps-dotdot-");
+  const deep = path.join(outside, "deep");
+  mkdirSync(deep);
+  try {
+    symlinkSync(deep, path.join(target, "link"), "dir");
+  } catch {
+    return t.skip("directory symlinks are not available on this host");
+  }
+  // link -> outside/deep, so target/link/../x.json is outside/x.json physically, not target/x.json.
+  const via = [target, "link", "..", "x.json"].join(path.sep); // not normalised: the OS resolves it
+  const r = runWith(target, via);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(path.join(outside, "x.json")));
+});
+
+test("when a directory cannot be probed the guard assumes it folds case (it can only over-refuse)", () => {
+  const dir = path.join(scratch("ps-noprobe-"), "000");
+  mkdirSync(dir);
+  assert.equal(guard.directoryFoldsCase(dir), true);
+});

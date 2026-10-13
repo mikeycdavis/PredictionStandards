@@ -35,7 +35,7 @@ import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
 
 import { loadCatalog, assertBindings, coverage, CatalogError, CATALOG_DIR } from "./catalog.mjs";
 import {
@@ -46,6 +46,7 @@ import {
   STATUS,
 } from "./compliance.mjs";
 import { checkPolicy } from "./policy.mjs";
+import { firstConflict, physicalDestination } from "./path-guard.mjs";
 import { describeFailure, notAttempted, readRegister, resolveVersion, REGISTER_PATH } from "./release-register.mjs";
 import {
   EVALUATED_RULES,
@@ -200,39 +201,6 @@ function resolvePolicyPath(options) {
   return found ?? null;
 }
 
-/**
- * A path that may not exist yet, made comparable: the deepest existing ancestor is resolved through
- * the filesystem (symlinks, relative segments, Windows case) and the not-yet-existing remainder is
- * appended. Used to refuse an OUTPUT that would land on an input.
- */
-function canonicalPath(p) {
-  let head = path.resolve(p);
-  const tail = [];
-  for (;;) {
-    try {
-      const real = realpathSync.native(head);
-      return path.join(real, ...tail.reverse());
-    } catch (error) {
-      // Only "this component does not exist (yet)" lets us climb. Anything else (EACCES, ELOOP, ...)
-      // means the real location is unknown, and a guess would be a lexical path that a symlink
-      // could contradict: fail closed instead.
-      if (error?.code !== "ENOENT" && error?.code !== "ENOTDIR") throw error;
-      const parent = path.dirname(head);
-      if (parent === head) return path.resolve(p);
-      tail.push(path.basename(head));
-      head = parent;
-    }
-  }
-}
-
-const samePath = (a, b) => (process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b);
-const insideOrEqual = (child, parent) => {
-  const rel = path.relative(parent, child);
-  // Only `..` itself or `..<sep>...` is traversal. A child NAMED "..resolution.json" is inside.
-  const traversal = rel === ".." || rel.startsWith(`..${path.sep}`);
-  return rel === "" || (!traversal && !path.isAbsolute(rel));
-};
-
 const WINDOWS_DEVICE = /^(con|prn|aux|nul|conin$|conout$|com[0-9¹²³]|lpt[0-9¹²³])$/i;
 
 /**
@@ -244,7 +212,12 @@ const WINDOWS_DEVICE = /^(con|prn|aux|nul|conin$|conout$|com[0-9¹²³]|lpt[0-9�
  * test of what the write would reach.
  */
 function resolutionDestinationProblem(outPath) {
-  const abs = path.resolve(outPath);
+  let abs;
+  try {
+    abs = physicalDestination(outPath);
+  } catch (error) {
+    return `its directory cannot be resolved (${error?.code ?? "error"})`;
+  }
   if (process.platform === "win32") {
     const isSep = (c) => c === "/" || c === String.fromCharCode(92);
     const namespaced = (p) => p.length >= 4 && isSep(p[0]) && isSep(p[1]) && (p[2] === "." || p[2] === "?") && isSep(p[3]);
@@ -269,7 +242,7 @@ function resolutionDestinationProblem(outPath) {
  * became a symlink, FIFO or device after validation is replaced rather than followed.
  */
 export async function writeResolutionFile(file, text, { tempPath } = {}) {
-  const abs = path.resolve(file);
+  const abs = physicalDestination(file);
   const temp = tempPath ?? path.join(path.dirname(abs), `.${path.basename(abs)}.${randomBytes(8).toString("hex")}.tmp`);
   // Only a file THIS call created may be removed. A "wx" open that fails with EEXIST means the name
   // belongs to someone else (a stale or concurrent file); unlinking it would destroy what we do not own.
@@ -313,7 +286,7 @@ function readSet({ target, policyPath, policyCandidates = [] }, unenumerable = [
   // A directory is guarded by containment, which does not see a FILE inside it that is a symlink to
   // somewhere else: the run reads the backing file, and a write onto the backing file would replace
   // what the run is about to read. So every file under a guarded directory is also guarded as a
-  // file, and canonicalPath() resolves each through the filesystem to the file actually read.
+  // file, and path-guard.mjs resolves each through the filesystem to the file actually read.
   // (A hard link needs no such entry: the write is a rename, which replaces the destination's
   // directory entry and never modifies the inode another name points at.)
   const expanded = [];
@@ -325,9 +298,11 @@ function readSet({ target, policyPath, policyCandidates = [] }, unenumerable = [
     // 20 and 24: a cycle is walked until the OS refuses). The guard must see what that scan sees, so
     // a symlinked directory is guarded as a directory (anything written under it is read as a
     // record) and walked once by its real path; the visited set is what ends a cycle.
+    // Identity (dev:ino), not path strings, so two names for one directory are one directory.
+    const identity = (st) => `${st.dev}:${st.ino}`;
     const visited = new Set();
     try {
-      visited.add(realpathSync.native(entry.p));
+      visited.add(identity(statSync(entry.p)));
     } catch {
       // handled by the top-level readdir below
     }
@@ -362,7 +337,7 @@ function readSet({ target, policyPath, policyCandidates = [] }, unenumerable = [
         if (isDir) {
           let real;
           try {
-            real = realpathSync.native(full);
+            real = identity(statSync(full));
           } catch (error) {
             unenumerable.push(`${relative(full)} (${error?.code ?? "error"})`);
             continue;
@@ -385,16 +360,12 @@ function readSet({ target, policyPath, policyCandidates = [] }, unenumerable = [
  * malformed record, and one written over an input would destroy it before it was read. An output
  * must not land on anything the run reads.
  */
-function resolutionPathConflict(outPath, context) {
+function resolutionPathConflict(outPath, context, options = {}) {
   try {
-    const out = canonicalPath(outPath);
     const unenumerable = [];
     const entries = readSet(context, unenumerable);
-    for (const entry of entries) {
-      const input = canonicalPath(entry.p);
-      const hit = entry.dir ? insideOrEqual(out, input) : samePath(out, input);
-      if (hit) return entry.dir ? `it is inside or equal to ${entry.why}` : `it is ${entry.why}`;
-    }
+    const hit = firstConflict(outPath, entries, options);
+    if (hit) return hit.dir ? `it is inside or equal to ${hit.why}` : `it is ${hit.why}`;
     if (unenumerable.length > 0) {
       return `the inputs of this run cannot be enumerated (${unenumerable.slice(0, 3).join(", ")}), so the output cannot be proven to be outside them`;
     }
@@ -403,7 +374,6 @@ function resolutionPathConflict(outPath, context) {
     return `a path involved cannot be resolved, so the output cannot be proven to be outside the inputs (${error?.code ?? error?.message})`;
   }
 }
-
 const relative = (p) => path.relative(ROOT, p).split(path.sep).join("/") || p;
 
 /**
