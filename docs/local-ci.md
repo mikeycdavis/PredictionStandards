@@ -64,7 +64,7 @@ fidelity    quoted prohibitions still say what the source said
 integrity   the standards-integrity ratchet — no rule weakened in silence
 policy      this repository's own project-policy.yml is valid and compliant
 diagrams    every .mmd matches the copy embedded in Markdown
-test        node --test — 209 tests
+test        node --test — 382 tests
 audit       survey the example records
 check       the verdict on the example records
 ```
